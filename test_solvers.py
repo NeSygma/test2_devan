@@ -3,10 +3,10 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from solver_pipeline.solvers.prolog_solver import run_prolog_solver
-from solver_pipeline.solvers.z3_solver import run_z3_solver
-from solver_pipeline.solvers.constraint_solver import run_constraint_solver
-from solver_pipeline.solvers.prover9_solver import run_prover9_solver
+from solver_select_pipeline.solvers.prolog_solver import run_prolog_solver
+from solver_select_pipeline.solvers.z3_solver import run_z3_solver
+from solver_select_pipeline.solvers.constraint_solver import run_constraint_solver
+from solver_select_pipeline.solvers.prover9_solver import run_prover9_solver
 
 def test_prolog():
     code = '''mortal(X) :- man(X).

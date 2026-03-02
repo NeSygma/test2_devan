@@ -1,0 +1,20 @@
+id,gold_solver,predicted_solver,oneshot_solver,pipeline_match,oneshot_match,text
+folio_0,FOL,FOL,FOL,True,True,"People in this club who perform in school talent shows often attend and are very engaged with school events.
+People in this club either perform in school talent shows often or are inactive and disinterested community members.
+People in this club who chaperone high school dances are not students who attend the school.
+All people in this club who are inactive and disinterested members of their community chaperone high school dances.
+All young children and teenagers in this club who wish to further their academic careers and educational opportunities are students who attend the school. 
+Bonnie is in this club and she either both attends and is very engaged with school events and is a student who attends the school or is not someone who both attends and is very engaged with school events and is not a student who attends the school.
+Conclusion: Bonnie performs in school talent shows often."
+arlsat_0,SAT,SAT,CSP,True,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+Which one of the following seating arrangements of the six representatives in chairs 1 through 6 would NOT violate the stated conditions?
+"
+proofwriter_0,LP,LP,FOL,True,False," 
+ Charlie is cold."
+logdeduc_0,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a branch, there are five birds: a quail, an owl, a raven, a falcon, and a robin. The owl is the leftmost. The robin is to the left of the raven. The quail is the rightmost. The raven is the third from the left.
+Options:
+(A) The quail is the rightmost
+(B) The owl is the rightmost
+(C) The raven is the rightmost
+(D) The falcon is the rightmost
+(E) The robin is the rightmost"
