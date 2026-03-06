@@ -1,20 +1,374 @@
-id,gold_solver,predicted_solver,oneshot_solver,pipeline_match,oneshot_match,text
+id,gold_solver,predicted_solver,oneshot_solver,pipeline_match,oneshot_match,text,prompt_tokens,completion_tokens,total_tokens
+logdeduc_17,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a branch, there are five birds: a quail, an owl, a raven, a falcon, and a robin. The owl is the leftmost. The robin is to the left of the raven. The quail is the rightmost. The raven is the third from the left.
+Options:
+(A) The quail is the second from the right
+(B) The owl is the second from the right
+(C) The raven is the second from the right
+(D) The falcon is the second from the right
+(E) The robin is the second from the right",1474,743,2217
+logdeduc_15,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a shelf, there are five books: a yellow book, a gray book, a red book, a black book, and a white book. The gray book is to the left of the yellow book. The white book is to the left of the red book. The black book is to the right of the red book. The black book is to the left of the gray book.
+Options:
+(A) The yellow book is the rightmost
+(B) The gray book is the rightmost
+(C) The red book is the rightmost
+(D) The black book is the rightmost
+(E) The white book is the rightmost",1494,559,2053
+folio_18,FOL,FOL,FOL,True,True,"All rabbits that can be spotted near the campus are cute. 
+Some turtles can be spotted near the campus. 
+The only animals that can be spotted near the campus are rabbits and squirrels.
+If something is skittish, then it is not calm.
+All the squirrels that can be spotted near the campus are skittish.
+Rockie can be spotted near the campus, and it is calm.
+Conclusion: Rockie is a turtle or cute.",1364,638,2002
+proofwriter_15,LP,LP,SAT,True,False," 
+ Fiona is kind.",1194,997,2191
+proofwriter_9,LP,LP,SAT,True,False," 
+ Bob is round.",1194,616,1810
+arlsat_14,SAT,CSP,CSP,False,False,"The eight partners of a law firm are Gregg, Hodges, Ivan, James, King, MacNeil, Nader, and Owens. In each of the years 1961 through 1968, exactly one of the partners joined the firm. Hodges joined the firm before Nader. King joined the firm before James. Nader and James joined the firm before Gregg. Nader joined the firm before Owens. James joined the firm before MacNeil. Gregg joined the firm before Ivan.
+If James joined the firm in 1962, which one of the following CANNOT be true?
+",1422,569,1991
+folio_1,FOL,FOL,FOL,True,True,"People in this club who perform in school talent shows often attend and are very engaged with school events.
+People in this club either perform in school talent shows often or are inactive and disinterested community members.
+People in this club who chaperone high school dances are not students who attend the school.
+All people in this club who are inactive and disinterested members of their community chaperone high school dances.
+All young children and teenagers in this club who wish to further their academic careers and educational opportunities are students who attend the school. 
+Bonnie is in this club and she either both attends and is very engaged with school events and is a student who attends the school or is not someone who both attends and is very engaged with school events and is not a student who attends the school.
+Conclusion: If Bonnie is either both a young child or teenager who wishes to further her academic career and educational opportunities and chaperones high school dances or neither is a young child nor teenager who wishes to further her academic career and educational opportunities, then Bonnie is either a student who attends the school or is an inactive and disinterested member of the community.",1644,595,2239
+folio_4,FOL,LP,FOL,False,True,"All employees who schedule a meeting with their customers will go to the company building today. 
+Everyone who has lunch in the company building schedules meetings with their customers. 
+Employees have lunch either in the company building or at home.
+If an employee has lunch at home, they are working remotely from home.
+All employees who are in other countries work remotely from home. 
+No managers work remotely from home. 
+James will appear in the company today if and only if he is a manager.
+Conclusion: James does not have lunch in the company.",1400,796,2196
+arlsat_18,SAT,CSP,CSP,False,False,"A railway company has exactly three lines: line 1, line 2, and line 3. The company prints three sets of tickets for January and three sets of tickets for February: one set for each of its lines for each of the two months. The company's tickets are printed in a manner consistent with the following conditions: Each of the six sets of tickets is exactly one of the following colors: green, purple, red, yellow. For each line, the January tickets are a different color than the February tickets. For each month, tickets for different lines are in different colors. Exactly one set of January tickets is red. For line 3, either the January tickets or the February tickets, but not both, are green. The January tickets for line 2 are purple. No February tickets are purple.
+If the line 3 tickets for January are red, then which one of the following statements must be true?
+",1556,527,2083
+logdeduc_18,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In a golf tournament, there were five golfers: Mel, Dan, Amy, Joe, and Eve. Amy finished below Dan. Mel finished first. Joe finished above Dan. Eve finished last.
+Options:
+(A) Mel finished first
+(B) Dan finished first
+(C) Amy finished first
+(D) Joe finished first
+(E) Eve finished first",1376,548,1924
 folio_0,FOL,FOL,FOL,True,True,"People in this club who perform in school talent shows often attend and are very engaged with school events.
 People in this club either perform in school talent shows often or are inactive and disinterested community members.
 People in this club who chaperone high school dances are not students who attend the school.
 All people in this club who are inactive and disinterested members of their community chaperone high school dances.
 All young children and teenagers in this club who wish to further their academic careers and educational opportunities are students who attend the school. 
 Bonnie is in this club and she either both attends and is very engaged with school events and is a student who attends the school or is not someone who both attends and is very engaged with school events and is not a student who attends the school.
-Conclusion: Bonnie performs in school talent shows often."
-arlsat_0,SAT,SAT,CSP,True,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
-Which one of the following seating arrangements of the six representatives in chairs 1 through 6 would NOT violate the stated conditions?
-"
-proofwriter_0,LP,LP,FOL,True,False," 
- Charlie is cold."
-logdeduc_0,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a branch, there are five birds: a quail, an owl, a raven, a falcon, and a robin. The owl is the leftmost. The robin is to the left of the raven. The quail is the rightmost. The raven is the third from the left.
+Conclusion: Bonnie performs in school talent shows often.",1522,957,2479
+folio_12,FOL,LP,FOL,False,True,"A Japanese game company created the game the Legend of Zelda.
+All games on the Top 10 list are made by Japanese game companies.
+If a game sells more than one million copies, then it will be included in the Top 10 list.
+The Legend of Zelda sold more than one million copies.
+Conclusion: The Legend of Zelda is on the Top 10 list.",1332,900,2232
+logdeduc_4,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a shelf, there are five books: a green book, an orange book, a gray book, a yellow book, and a purple book. The green book is the rightmost. The gray book is to the right of the orange book. The purple book is to the left of the yellow book. The purple book is to the right of the gray book.
+Options:
+(A) The green book is the second from the right
+(B) The orange book is the second from the right
+(C) The gray book is the second from the right
+(D) The yellow book is the second from the right
+(E) The purple book is the second from the right",1506,521,2027
+logdeduc_16,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In an antique car show, there are five vehicles: a hatchback, a convertible, a tractor, a truck, and a limousine. The tractor is newer than the hatchback. The limousine is the second-newest. The truck is older than the hatchback. The convertible is the second-oldest.
+Options:
+(A) The hatchback is the second-oldest
+(B) The convertible is the second-oldest
+(C) The tractor is the second-oldest
+(D) The truck is the second-oldest
+(E) The limousine is the second-oldest",1464,638,2102
+arlsat_17,SAT,CSP,CSP,False,False,"The eight partners of a law firm are Gregg, Hodges, Ivan, James, King, MacNeil, Nader, and Owens. In each of the years 1961 through 1968, exactly one of the partners joined the firm. Hodges joined the firm before Nader. King joined the firm before James. Nader and James joined the firm before Gregg. Nader joined the firm before Owens. James joined the firm before MacNeil. Gregg joined the firm before Ivan.
+Assume that Owens joined the law firm before MacNeil. Of the following, which one is the earliest year in which MacNeil could have joined it?
+",1444,568,2012
+arlsat_3,SAT,CSP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+If Neri sits immediately next to Manley, then Klosnik can sit directly between
+",1514,559,2073
+proofwriter_4,LP,LP,SAT,True,False," 
+ Gary is not green.",1196,514,1710
+arlsat_12,SAT,CSP,CSP,False,False,"A small software firm has four offices, numbered 1, 2, 3, and 4. Each of its offices has exactly one computer and exactly one printer. Each of these eight machines was bought in either 1987, 1988, or 1989. The eight machines were bought in a manner consistent with the following conditions: The computer in each office was bought either in an earlier year than or in the same year as the printer in that office. The computer in office 2 and the printer in office 1 were bought in the same year. The computer in office 3 and the printer in office 4 were bought in the same year. The computer in office 2 and the computer in office 3 were bought in different years. The computer in office 1 and the printer in office 3 were bought in 1988.
+Suppose that the computer in office 2 and the computer in office 3 had been bought in the same year as each other. If all of the other conditions remained the same, then which one of the following machines could have been bought in 1989?
+",1640,691,2331
+folio_10,FOL,LP,SAT,False,False,"There are six types of wild turkeys: Eastern wild turkey, Osceola wild turkey, Gould’s wild turkey, Merriam’s wild turkey, Rio Grande wild turkey, and Ocellated wild turkey.
+Tom is not an Eastern wild turkey.
+Tom is not an Osceola wild turkey.
+Tom is not a Gould's wild turkey.
+Tom is neither a Merriam's wild turkey nor a Rio Grande wild turkey.
+Tom is a wild turkey.
+Conclusion: Tom is an Eastern wild turkey.",1384,889,2273
+arlsat_13,SAT,CSP,CSP,False,False,"The eight partners of a law firm are Gregg, Hodges, Ivan, James, King, MacNeil, Nader, and Owens. In each of the years 1961 through 1968, exactly one of the partners joined the firm. Hodges joined the firm before Nader. King joined the firm before James. Nader and James joined the firm before Gregg. Nader joined the firm before Owens. James joined the firm before MacNeil. Gregg joined the firm before Ivan.
+Which one of the following CANNOT be true?
+",1402,480,1882
+logdeduc_5,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a shelf, there are five books: a white book, a green book, a brown book, a gray book, and an orange book. The gray book is to the right of the orange book. The green book is the second from the right. The brown book is to the right of the white book. The brown book is to the left of the orange book.
+Options:
+(A) The white book is the third from the left
+(B) The green book is the third from the left
+(C) The brown book is the third from the left
+(D) The gray book is the third from the left
+(E) The orange book is the third from the left",1510,528,2038
+folio_3,FOL,FOL,FOL,True,True,"All employees who schedule a meeting with their customers will go to the company building today. 
+Everyone who has lunch in the company building schedules meetings with their customers. 
+Employees have lunch either in the company building or at home.
+If an employee has lunch at home, they are working remotely from home.
+All employees who are in other countries work remotely from home. 
+No managers work remotely from home. 
+James will appear in the company today if and only if he is a manager.
+Conclusion: James has lunch in the company.",1396,597,1993
+proofwriter_6,LP,LP,FOL,True,False," 
+ Gary is not big.",1196,775,1971
+logdeduc_0,CSP,LP,CSP,False,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a branch, there are five birds: a quail, an owl, a raven, a falcon, and a robin. The owl is the leftmost. The robin is to the left of the raven. The quail is the rightmost. The raven is the third from the left.
 Options:
 (A) The quail is the rightmost
 (B) The owl is the rightmost
 (C) The raven is the rightmost
 (D) The falcon is the rightmost
-(E) The robin is the rightmost"
+(E) The robin is the rightmost",1454,716,2170
+logdeduc_2,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a shelf, there are five books: a yellow book, a green book, a gray book, a blue book, and an orange book. The gray book is to the left of the green book. The gray book is the second from the right. The yellow book is to the right of the orange book. The blue book is the second from the left.
+Options:
+(A) The yellow book is the leftmost
+(B) The green book is the leftmost
+(C) The gray book is the leftmost
+(D) The blue book is the leftmost
+(E) The orange book is the leftmost",1486,635,2121
+logdeduc_9,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In an antique car show, there are five vehicles: a convertible, a sedan, a tractor, a minivan, and a limousine. The tractor is newer than the minivan. The tractor is older than the limousine. The convertible is older than the sedan. The convertible is the second-newest.
+Options:
+(A) The convertible is the second-oldest
+(B) The sedan is the second-oldest
+(C) The tractor is the second-oldest
+(D) The minivan is the second-oldest
+(E) The limousine is the second-oldest",1462,712,2174
+arlsat_4,SAT,LP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+If Londi sits immediately next to Manley, then which one of the following is a complete and accurate list of representatives any one of whom could also sit immediately next to Londi?
+",1550,637,2187
+folio_14,FOL,LP,FOL,False,True,"A Japanese game company created the game the Legend of Zelda.
+All games on the Top 10 list are made by Japanese game companies.
+If a game sells more than one million copies, then it will be included in the Top 10 list.
+The Legend of Zelda sold more than one million copies.
+Conclusion: The Legend of Zelda is not on the Top 10 list.",1334,850,2184
+folio_6,FOL,LP,FOL,False,True,"When the Monkeypox virus occurs in a being, it may get Monkeypox. 
+Monkeypox virus can occur in certain animals.
+Humans are mammals.
+Mammals are animals.
+Symptoms of Monkeypox include fever, headache, muscle pains, and tiredness. 
+People feel tired when they get the flu.
+Conclusion: There is an animal.",1324,878,2202
+folio_8,FOL,LP,FOL,False,True,"When the Monkeypox virus occurs in a being, it may get Monkeypox. 
+Monkeypox virus can occur in certain animals.
+Humans are mammals.
+Mammals are animals.
+Symptoms of Monkeypox include fever, headache, muscle pains, and tiredness. 
+People feel tired when they get the flu.
+Conclusion: Symptoms of Monkeypox include coughing.",1328,688,2016
+folio_13,FOL,LP,FOL,False,True,"A Japanese game company created the game the Legend of Zelda.
+All games on the Top 10 list are made by Japanese game companies.
+If a game sells more than one million copies, then it will be included in the Top 10 list.
+The Legend of Zelda sold more than one million copies.
+Conclusion: FIFA 22 is made by a Japanese video game company.",1332,761,2093
+proofwriter_18,LP,LP,FOL,True,False," 
+ The dog does not chase the dog.",1202,773,1975
+logdeduc_6,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In an antique car show, there are five vehicles: a convertible, a bus, a minivan, a truck, and a sedan. The convertible is newer than the truck. The minivan is the newest. The bus is the third-newest. The truck is newer than the sedan.
+Options:
+(A) The convertible is the newest
+(B) The bus is the newest
+(C) The minivan is the newest
+(D) The truck is the newest
+(E) The sedan is the newest",1438,464,1902
+arlsat_11,SAT,CSP,CSP,False,False,"A small software firm has four offices, numbered 1, 2, 3, and 4. Each of its offices has exactly one computer and exactly one printer. Each of these eight machines was bought in either 1987, 1988, or 1989. The eight machines were bought in a manner consistent with the following conditions: The computer in each office was bought either in an earlier year than or in the same year as the printer in that office. The computer in office 2 and the printer in office 1 were bought in the same year. The computer in office 3 and the printer in office 4 were bought in the same year. The computer in office 2 and the computer in office 3 were bought in different years. The computer in office 1 and the printer in office 3 were bought in 1988.
+If the computer in office 3 was bought in 1988, then which one of the following statements could be true?
+",1584,664,2248
+folio_19,FOL,LP,FOL,False,True,"All rabbits that can be spotted near the campus are cute. 
+Some turtles can be spotted near the campus. 
+The only animals that can be spotted near the campus are rabbits and squirrels.
+If something is skittish, then it is not calm.
+All the squirrels that can be spotted near the campus are skittish.
+Rockie can be spotted near the campus, and it is calm.
+Conclusion: If Rockie is not both a turtle and a squirrel, then Rockie is either cute or skittish.",1394,683,2077
+arlsat_5,SAT,CSP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+If Londi sits immediately next to Neri, which one of the following statements must be false?
+",1516,573,2089
+logdeduc_13,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In a golf tournament, there were five golfers: Ada, Eli, Amy, Joe, and Mel. Ada finished above Eli. Amy finished below Mel. Ada finished second. Mel finished below Eli.
+Options:
+(A) Ada finished first
+(B) Eli finished first
+(C) Amy finished first
+(D) Joe finished first
+(E) Mel finished first",1378,542,1920
+logdeduc_3,CSP,LP,CSP,False,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a branch, there are five birds: a raven, an owl, a cardinal, a hummingbird, and a robin. The cardinal is the rightmost. The raven is to the left of the owl. The robin is to the right of the hummingbird. The hummingbird is the third from the left.
+Options:
+(A) The raven is the second from the left
+(B) The owl is the second from the left
+(C) The cardinal is the second from the left
+(D) The hummingbird is the second from the left
+(E) The robin is the second from the left",1478,580,2058
+logdeduc_1,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In an antique car show, there are five vehicles: a hatchback, a bus, a convertible, a tractor, and a minivan. The tractor is older than the bus. The minivan is newer than the bus. The hatchback is the second-newest. The minivan is older than the convertible.
+Options:
+(A) The hatchback is the second-oldest
+(B) The bus is the second-oldest
+(C) The convertible is the second-oldest
+(D) The tractor is the second-oldest
+(E) The minivan is the second-oldest",1470,647,2117
+proofwriter_7,LP,ERROR,SAT,False,False," 
+ Gary is big.",1194,537,1731
+folio_5,FOL,FOL,FOL,True,True,"All employees who schedule a meeting with their customers will go to the company building today. 
+Everyone who has lunch in the company building schedules meetings with their customers. 
+Employees have lunch either in the company building or at home.
+If an employee has lunch at home, they are working remotely from home.
+All employees who are in other countries work remotely from home. 
+No managers work remotely from home. 
+James will appear in the company today if and only if he is a manager.
+Conclusion: If James is either a manager or in other countries,  then James does not either has lunch at home or work remotely from home. If James either has lunch at home or works remotely from home, then he is neither a manager nor does he work in other countries. [contrapositive is more natural]",1506,844,2350
+arlsat_0,SAT,CSP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+Which one of the following seating arrangements of the six representatives in chairs 1 through 6 would NOT violate the stated conditions?
+",1526,907,2433
+proofwriter_10,LP,LP,FOL,True,False," 
+ Bob is cold.",1194,628,1822
+arlsat_6,SAT,CSP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+If Klosnik sits immediately next to Osata, then Londi CANNOT sit directly between
+",1516,563,2079
+proofwriter_3,LP,LP,FOL,True,False," 
+ Dave is cold.",1194,803,1997
+arlsat_2,SAT,CSP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+If Klosnik sits directly between Londi and Poirier, then Manley must sit directly between
+",1520,768,2288
+proofwriter_12,LP,LP,SAT,True,False," 
+ Bob is not red.",1196,533,1729
+folio_9,FOL,LP,CSP,False,False,"There are six types of wild turkeys: Eastern wild turkey, Osceola wild turkey, Gould’s wild turkey, Merriam’s wild turkey, Rio Grande wild turkey, and Ocellated wild turkey.
+Tom is not an Eastern wild turkey.
+Tom is not an Osceola wild turkey.
+Tom is not a Gould's wild turkey.
+Tom is neither a Merriam's wild turkey nor a Rio Grande wild turkey.
+Tom is a wild turkey.
+Conclusion: Tom is an Ocellated wild turkey.",1388,616,2004
+folio_2,FOL,FOL,FOL,True,True,"People in this club who perform in school talent shows often attend and are very engaged with school events.
+People in this club either perform in school talent shows often or are inactive and disinterested community members.
+People in this club who chaperone high school dances are not students who attend the school.
+All people in this club who are inactive and disinterested members of their community chaperone high school dances.
+All young children and teenagers in this club who wish to further their academic careers and educational opportunities are students who attend the school. 
+Bonnie is in this club and she either both attends and is very engaged with school events and is a student who attends the school or is not someone who both attends and is very engaged with school events and is not a student who attends the school.
+Conclusion: If Bonnie either chaperones high school dances or, if she does not, she performs in school talent shows often, then Bonnie is both a young child or teenager who wishes to further her academic career and educational opportunities and an inactive and disinterested member of the community.",1616,953,2569
+arlsat_10,SAT,CSP,CSP,False,False,"A small software firm has four offices, numbered 1, 2, 3, and 4. Each of its offices has exactly one computer and exactly one printer. Each of these eight machines was bought in either 1987, 1988, or 1989. The eight machines were bought in a manner consistent with the following conditions: The computer in each office was bought either in an earlier year than or in the same year as the printer in that office. The computer in office 2 and the printer in office 1 were bought in the same year. The computer in office 3 and the printer in office 4 were bought in the same year. The computer in office 2 and the computer in office 3 were bought in different years. The computer in office 1 and the printer in office 3 were bought in 1988.
+If the computer in office 4 was bought in 1988, then which one of the following statements must be true?
+",1584,567,2151
+proofwriter_13,LP,ERROR,FOL,False,False," 
+ Bob is smart.",1194,461,1655
+arlsat_1,SAT,LP,CSP,False,False,"Exactly six trade representatives negotiate a treaty: Klosnik, Londi, Manley, Neri, Osata, Poirier. There are exactly six chairs evenly spaced around a circular table. The chairs are numbered 1 through 6, with successively numbered chairs next to each other and chair number 1 next to chair number 6. Each chair is occupied by exactly one of the representatives. The following conditions apply: Poirier sits immediately next to Neri. Londi sits immediately next to Manley, Neri, or both. Klosnik does not sit immediately next to Manley. If Osata sits immediately next to Poirier, Osata does not sit immediately next to Manley.
+If Londi sits immediately next to Poirier, which one of the following is a pair of representatives who must sit immediately next to each other?
+",1536,680,2216
+logdeduc_10,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. A fruit stand sells five fruits: kiwis, pears, peaches, loquats, and apples. The loquats are more expensive than the kiwis. The pears are more expensive than the peaches. The apples are more expensive than the loquats. The apples are less expensive than the peaches.
+Options:
+(A) The kiwis are the second-cheapest
+(B) The pears are the second-cheapest
+(C) The peaches are the second-cheapest
+(D) The loquats are the second-cheapest
+(E) The apples are the second-cheapest",1468,619,2087
+folio_16,FOL,LP,FOL,False,True,"All rabbits that can be spotted near the campus are cute. 
+Some turtles can be spotted near the campus. 
+The only animals that can be spotted near the campus are rabbits and squirrels.
+If something is skittish, then it is not calm.
+All the squirrels that can be spotted near the campus are skittish.
+Rockie can be spotted near the campus, and it is calm.
+Conclusion: Rockie is a turtle.",1360,638,1998
+proofwriter_11,LP,LP,SAT,True,False," 
+ Bob is not kind.",1196,768,1964
+proofwriter_0,LP,FOL,SAT,False,False," 
+ Charlie is cold.",1194,525,1719
+proofwriter_1,LP,LP,SAT,True,False," 
+ Charlie is not cold.",1196,535,1731
+arlsat_9,SAT,CSP,CSP,False,False,"A small software firm has four offices, numbered 1, 2, 3, and 4. Each of its offices has exactly one computer and exactly one printer. Each of these eight machines was bought in either 1987, 1988, or 1989. The eight machines were bought in a manner consistent with the following conditions: The computer in each office was bought either in an earlier year than or in the same year as the printer in that office. The computer in office 2 and the printer in office 1 were bought in the same year. The computer in office 3 and the printer in office 4 were bought in the same year. The computer in office 2 and the computer in office 3 were bought in different years. The computer in office 1 and the printer in office 3 were bought in 1988.
+If as few of the eight machines as possible were bought in 1987, then what is the exact number of machines that were bought in 1987?
+",1598,566,2164
+proofwriter_19,LP,LP,FOL,True,False," 
+ The dog visits the dog.",1198,569,1767
+proofwriter_5,LP,ERROR,SAT,False,False," 
+ Gary is not smart.",1196,689,1885
+logdeduc_14,CSP,SAT,CSP,False,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. A fruit stand sells five fruits: watermelons, oranges, loquats, plums, and kiwis. The plums are less expensive than the kiwis. The plums are more expensive than the watermelons. The loquats are more expensive than the kiwis. The oranges are the most expensive.
+Options:
+(A) The watermelons are the cheapest
+(B) The oranges are the cheapest
+(C) The loquats are the cheapest
+(D) The plums are the cheapest
+(E) The kiwis are the cheapest",1462,879,2341
+proofwriter_2,LP,ERROR,FOL,False,False," 
+ Charlie is not round.",1196,630,1826
+proofwriter_14,LP,ERROR,SAT,False,False," 
+ Fiona is not green.",1196,507,1703
+arlsat_15,SAT,CSP,CSP,False,False,"The eight partners of a law firm are Gregg, Hodges, Ivan, James, King, MacNeil, Nader, and Owens. In each of the years 1961 through 1968, exactly one of the partners joined the firm. Hodges joined the firm before Nader. King joined the firm before James. Nader and James joined the firm before Gregg. Nader joined the firm before Owens. James joined the firm before MacNeil. Gregg joined the firm before Ivan.
+Of the following, which one is the latest year in which James could have joined the firm?
+",1420,667,2087
+arlsat_7,SAT,CSP,CSP,False,False,"A small software firm has four offices, numbered 1, 2, 3, and 4. Each of its offices has exactly one computer and exactly one printer. Each of these eight machines was bought in either 1987, 1988, or 1989. The eight machines were bought in a manner consistent with the following conditions: The computer in each office was bought either in an earlier year than or in the same year as the printer in that office. The computer in office 2 and the printer in office 1 were bought in the same year. The computer in office 3 and the printer in office 4 were bought in the same year. The computer in office 2 and the computer in office 3 were bought in different years. The computer in office 1 and the printer in office 3 were bought in 1988.
+If the computer in office 3 was bought in an earlier year than the printer in office 3 was, then which one of the following statements could be true?
+",1600,843,2443
+folio_17,FOL,LP,FOL,False,True,"All rabbits that can be spotted near the campus are cute. 
+Some turtles can be spotted near the campus. 
+The only animals that can be spotted near the campus are rabbits and squirrels.
+If something is skittish, then it is not calm.
+All the squirrels that can be spotted near the campus are skittish.
+Rockie can be spotted near the campus, and it is calm.
+Conclusion: Rockie is not a turtle.",1362,769,2131
+proofwriter_16,LP,ERROR,FOL,False,False," 
+ The rabbit is young.",1196,558,1754
+arlsat_8,SAT,CSP,CSP,False,False,"A small software firm has four offices, numbered 1, 2, 3, and 4. Each of its offices has exactly one computer and exactly one printer. Each of these eight machines was bought in either 1987, 1988, or 1989. The eight machines were bought in a manner consistent with the following conditions: The computer in each office was bought either in an earlier year than or in the same year as the printer in that office. The computer in office 2 and the printer in office 1 were bought in the same year. The computer in office 3 and the printer in office 4 were bought in the same year. The computer in office 2 and the computer in office 3 were bought in different years. The computer in office 1 and the printer in office 3 were bought in 1988.
+Which one of the following statements could be true?
+",1554,511,2065
+logdeduc_12,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a shelf, there are five books: a brown book, a yellow book, an orange book, a green book, and a gray book. The green book is to the left of the gray book. The brown book is the third from the left. The gray book is the second from the right. The yellow book is to the left of the green book.
+Options:
+(A) The brown book is the third from the left
+(B) The yellow book is the third from the left
+(C) The orange book is the third from the left
+(D) The green book is the third from the left
+(E) The gray book is the third from the left",1506,792,2298
+folio_15,FOL,LP,FOL,False,True,"All squares are four-sided.
+All four-sided things are shapes. 
+Conclusion: All squares are shapes.",1226,371,1597
+arlsat_16,SAT,LP,CSP,False,False,"The eight partners of a law firm are Gregg, Hodges, Ivan, James, King, MacNeil, Nader, and Owens. In each of the years 1961 through 1968, exactly one of the partners joined the firm. Hodges joined the firm before Nader. King joined the firm before James. Nader and James joined the firm before Gregg. Nader joined the firm before Owens. James joined the firm before MacNeil. Gregg joined the firm before Ivan.
+If Owens joined the firm in 1965 and MacNeil joined it in 1967, one can determine the years in which exactly how many of the other partners joined the firm?
+",1456,593,2049
+folio_7,FOL,LP,FOL,False,True,"When the Monkeypox virus occurs in a being, it may get Monkeypox. 
+Monkeypox virus can occur in certain animals.
+Humans are mammals.
+Mammals are animals.
+Symptoms of Monkeypox include fever, headache, muscle pains, and tiredness. 
+People feel tired when they get the flu.
+Conclusion: No one gets the flu.",1326,586,1912
+folio_11,FOL,SAT,FOL,False,True,"There are six types of wild turkeys: Eastern wild turkey, Osceola wild turkey, Gould’s wild turkey, Merriam’s wild turkey, Rio Grande wild turkey, and Ocellated wild turkey.
+Tom is not an Eastern wild turkey.
+Tom is not an Osceola wild turkey.
+Tom is not a Gould's wild turkey.
+Tom is neither a Merriam's wild turkey nor a Rio Grande wild turkey.
+Tom is a wild turkey.
+Conclusion: Joey is a wild turkey.",1382,1032,2414
+logdeduc_11,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. A fruit stand sells five fruits: oranges, cantaloupes, peaches, loquats, and kiwis. The peaches are more expensive than the oranges. The cantaloupes are more expensive than the peaches. The kiwis are the third-most expensive. The loquats are the second-cheapest.
+Options:
+(A) The oranges are the most expensive
+(B) The cantaloupes are the most expensive
+(C) The peaches are the most expensive
+(D) The loquats are the most expensive
+(E) The kiwis are the most expensive",1462,567,2029
+logdeduc_19,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In a golf tournament, there were five golfers: Rob, Amy, Joe, Eve, and Dan. Rob finished below Dan. Joe finished second. Joe finished above Eve. Eve finished above Dan.
+Options:
+(A) Rob finished second
+(B) Amy finished second
+(C) Joe finished second
+(D) Eve finished second
+(E) Dan finished second",1378,621,1999
+logdeduc_7,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. In a golf tournament, there were five golfers: Rob, Ada, Dan, Joe, and Mel. Ada finished above Mel. Mel finished above Dan. Joe finished below Dan. Ada finished second.
+Options:
+(A) Rob finished last
+(B) Ada finished last
+(C) Dan finished last
+(D) Joe finished last
+(E) Mel finished last",1378,497,1875
+proofwriter_8,LP,ERROR,SAT,False,False," 
+ Bob is not blue.",1196,509,1705
+logdeduc_8,CSP,CSP,CSP,True,True,"The following paragraphs each describe a set of five objects arranged in a fixed order. The statements are logically consistent within each paragraph. On a shelf, there are five books: a white book, a green book, a brown book, a gray book, and an orange book. The gray book is to the right of the orange book. The green book is the second from the right. The brown book is to the right of the white book. The brown book is to the left of the orange book.
+Options:
+(A) The white book is the rightmost
+(B) The green book is the rightmost
+(C) The brown book is the rightmost
+(D) The gray book is the rightmost
+(E) The orange book is the rightmost",1490,740,2230
+proofwriter_17,LP,LP,FOL,True,False," 
+ The lion is kind.",1196,621,1817
+arlsat_19,SAT,LP,CSP,False,False,"A railway company has exactly three lines: line 1, line 2, and line 3. The company prints three sets of tickets for January and three sets of tickets for February: one set for each of its lines for each of the two months. The company's tickets are printed in a manner consistent with the following conditions: Each of the six sets of tickets is exactly one of the following colors: green, purple, red, yellow. For each line, the January tickets are a different color than the February tickets. For each month, tickets for different lines are in different colors. Exactly one set of January tickets is red. For line 3, either the January tickets or the February tickets, but not both, are green. The January tickets for line 2 are purple. No February tickets are purple.
+If one set of the line 2 tickets is green, then which one of the following statements must be true?
+",1558,596,2154

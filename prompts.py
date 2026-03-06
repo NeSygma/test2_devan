@@ -29,7 +29,6 @@ To guide your classification:
 - "sample_description" (str): description of the sample.
 - "options" (list): the provided answer options.
 Preserve any existing option labels (e.g., "A)", "B)"). If options have no labels, assign labels 'A)', 'B)', 'C)', ... automatically.
-
 4. Extract or analyze the overall goal of the input text:
 - FIRST, try to extract any explicitly stated overall goal or instruction from the text (e.g., "Answer the above questions one by one", "Solve all problems to find the final answer", etc.)
 - If no explicit goal is found, analyze the relationship between problems and write a brief description:
@@ -40,7 +39,15 @@ Preserve any existing option labels (e.g., "A)", "B)"). If options have no label
 Return a JSON object with two keys:
 - "result": an array containing all identified problems
 - "overall_goal": the extracted goal text or a brief analysis-based description
-
+Example output format:
+"result": [
+"problem_id": "ques_1",
+"problem_type": "CSP",
+"context": "...",
+"question": "...",
+"options": ["A) ...", "B) ..."]
+],
+"overall_goal": "Answer the above questions one by one"
 USER:
 Problem Statement:
 {problem}

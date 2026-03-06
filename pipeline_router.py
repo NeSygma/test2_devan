@@ -7,22 +7,30 @@ from solver_select_pipeline.solvers.constraint_solver import run_constraint_solv
 import json
 
 class LogicPipelineRouter:
-    def __init__(self, api_key=None, model="gpt-oss-120b"): # Using model as requested
+    def __init__(self, api_key=None, model="gpt-oss-120b", temperature=None): # Using model as requested
         self.llm = LLMClient(api_key=api_key, model=model)
+        self.temperature = temperature
+
+    def get_token_usage(self) -> dict:
+        """Returns accumulated token usage from the LLM client."""
+        return self.llm.get_total_usage()
+
+    def reset_token_usage(self):
+        """Resets the LLM client's token usage counters."""
+        self.llm.reset_usage()
         
     def classify_solver_type(self, text: str) -> str:
         """
         Decomposes the natural language problem and identifies the solver type
-        using configurations from arXiv:2510.06774v1 (Temp=0.01, MaxTokens=4096)
+        using the paper's prompt structure from arXiv:2510.06774v1
         """
         prompt = PAPER_DECOMPOSITION_PROMPT.format(problem=text)
         
         # We don't provide a system prompt since the PAPER_DECOMPOSITION_PROMPT already includes the SYSTEM tags natively
-        response = self.llm.generate(
-            prompt=prompt, 
-            system_prompt="", # Instructed by the paper's prompt structure
-            temperature=0.01, 
-            max_tokens=4096
+        response, _usage = self.llm.generate(
+            prompt=prompt,
+            system_prompt="",  # Instructed by the paper's prompt structure
+            temperature=self.temperature
         )
         
         # Parse JSON
@@ -63,11 +71,10 @@ class LogicPipelineRouter:
         
         user_prompt = f"Problem Statement:\n{text}\nCategory:\n"
         
-        response = self.llm.generate(
-            prompt=user_prompt, 
-            system_prompt=sys_prompt, 
-            temperature=0.01, 
-            max_tokens=1024
+        response, _usage = self.llm.generate(
+            prompt=user_prompt,
+            system_prompt=sys_prompt,
+            temperature=self.temperature
         )
         
         if not response:
@@ -84,7 +91,7 @@ class LogicPipelineRouter:
         Uses the LLM to classify the problem and pick the best solver.
         """
         prompt = SOLVER_SELECTION_PROMPT.format(premises=premises, conclusion=conclusion)
-        response = self.llm.generate(prompt=prompt, temperature=0.0, max_tokens=50)
+        response, _usage = self.llm.generate(prompt=prompt, temperature=self.temperature)
         response = response.strip() if response else ""
         
         # Clean response to ensure it matches exactly one of our 4 expected outputs
@@ -98,11 +105,10 @@ class LogicPipelineRouter:
         Uses the LLM to translate natural language into the specific DSL/Code.
         """
         prompt = TRANSLATION_PROMPTS[solver].format(premises=premises, conclusion=conclusion)
-        response = self.llm.generate(
-            prompt=prompt, 
+        response, _usage = self.llm.generate(
+            prompt=prompt,
             system_prompt=f"You are an expert coder specializing in {solver}. Only return code, no markdown or explanations.",
-            temperature=0.1, 
-            max_tokens=2048
+            temperature=self.temperature
         )
         return response if response else ""
         

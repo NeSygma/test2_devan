@@ -36,8 +36,12 @@ def main():
     router = LogicPipelineRouter()
     
     results = []
+    router.reset_token_usage()  # Reset counters before evaluation
     print("Starting evaluation...")
     for problem in tqdm(problems):
+        # Snapshot token usage before this problem
+        usage_before = router.get_token_usage()
+        
         if args.eval_classification_only:
             # Classification Evaluation Mode (Pipeline vs One-shot)
             text = problem.get('text', problem.get('premises', '') + '\n' + problem.get('conclusion', ''))
@@ -49,6 +53,14 @@ def main():
             
             gold_solver = problem.get('gold_solver', 'UNKNOWN')
             
+            # Compute per-problem token delta
+            usage_after = router.get_token_usage()
+            problem_tokens = {
+                "prompt_tokens": usage_after["prompt_tokens"] - usage_before["prompt_tokens"],
+                "completion_tokens": usage_after["completion_tokens"] - usage_before["completion_tokens"],
+                "total_tokens": usage_after["total_tokens"] - usage_before["total_tokens"],
+            }
+            
             results.append({
                 "id": problem['id'],
                 "gold_solver": gold_solver,
@@ -56,7 +68,10 @@ def main():
                 "oneshot_solver": oneshot_solver,
                 "pipeline_match": predicted_solver == gold_solver,
                 "oneshot_match": oneshot_solver == gold_solver,
-                "text": text
+                "text": text,
+                "prompt_tokens": problem_tokens["prompt_tokens"],
+                "completion_tokens": problem_tokens["completion_tokens"],
+                "total_tokens": problem_tokens["total_tokens"],
             })
         else:
             # Full Execution Mode
@@ -72,6 +87,14 @@ def main():
                 match = True
             elif gold_label.lower() in ["false", "uncertain"] and res['status'].lower() in ["false/uncertain", "uncertain", "false"]:
                 match = True
+            
+            # Compute per-problem token delta
+            usage_after = router.get_token_usage()
+            problem_tokens = {
+                "prompt_tokens": usage_after["prompt_tokens"] - usage_before["prompt_tokens"],
+                "completion_tokens": usage_after["completion_tokens"] - usage_before["completion_tokens"],
+                "total_tokens": usage_after["total_tokens"] - usage_before["total_tokens"],
+            }
                 
             results.append({
                 "id": problem['id'],
@@ -80,11 +103,24 @@ def main():
                 "solver_status": res['status'],
                 "match": match,
                 "code": res['code'],
-                "raw_output": res['output']
+                "raw_output": res['output'],
+                "prompt_tokens": problem_tokens["prompt_tokens"],
+                "completion_tokens": problem_tokens["completion_tokens"],
+                "total_tokens": problem_tokens["total_tokens"],
             })
         
     df = pd.DataFrame(results)
     df.to_csv(args.out, index=False)
+    
+    # Print total token usage summary
+    total_usage = router.get_token_usage()
+    print(f"\n{'='*50}")
+    print(f"TOKEN USAGE SUMMARY")
+    print(f"{'='*50}")
+    print(f"Total Prompt Tokens:     {total_usage['prompt_tokens']:,}")
+    print(f"Total Completion Tokens: {total_usage['completion_tokens']:,}")
+    print(f"Total Tokens:            {total_usage['total_tokens']:,}")
+    print(f"{'='*50}")
     
     print(f"\nEvaluation complete. Results saved to {args.out}")
     if len(df) > 0:
@@ -144,6 +180,53 @@ def main():
             print(df['chosen_solver'].value_counts())
             print("\nSolver Outcomes:")
             print(df['solver_status'].value_counts())
+        
+        # Generate Token Usage Plot
+        _generate_token_usage_plot(df, total_usage)
+
+def _generate_token_usage_plot(df, total_usage):
+    """Generates a stacked bar chart of per-problem token usage and saves it to media/."""
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib.ticker as ticker
+        
+        fig, ax = plt.subplots(figsize=(max(10, len(df) * 0.8), 6))
+        
+        x = range(len(df))
+        problem_labels = [str(pid) for pid in df['id']]
+        prompt_tokens = df['prompt_tokens'].tolist()
+        completion_tokens = df['completion_tokens'].tolist()
+        
+        # Stacked bar chart
+        bars_prompt = ax.bar(x, prompt_tokens, label='Prompt Tokens', color='#4C72B0', edgecolor='white', linewidth=0.5)
+        bars_completion = ax.bar(x, completion_tokens, bottom=prompt_tokens, label='Completion Tokens', color='#DD8452', edgecolor='white', linewidth=0.5)
+        
+        ax.set_xlabel('Problem ID', fontsize=12)
+        ax.set_ylabel('Token Count', fontsize=12)
+        ax.set_title('Token Usage Per Problem', fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(problem_labels, rotation=45, ha='right', fontsize=8)
+        ax.legend(loc='upper right')
+        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda val, pos: f'{int(val):,}'))
+        
+        # Annotate total usage
+        total_text = (
+            f"Total Tokens: {total_usage['total_tokens']:,}\n"
+            f"  Prompt: {total_usage['prompt_tokens']:,}\n"
+            f"  Completion: {total_usage['completion_tokens']:,}"
+        )
+        ax.text(0.98, 0.95, total_text, transform=ax.transAxes, fontsize=9,
+                verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightyellow', edgecolor='gray', alpha=0.9))
+        
+        plt.tight_layout()
+        os.makedirs('media', exist_ok=True)
+        plot_file = os.path.join('media', 'token_usage_plot.png')
+        plt.savefig(plot_file, dpi=150)
+        plt.close()
+        print(f"Token usage plot saved to {plot_file}")
+    except ImportError:
+        print("\nmatplotlib is not installed. Skipping token usage visualization.")
 
 if __name__ == "__main__":
     main()
