@@ -50,13 +50,15 @@ class LLMClient:
             time.sleep(wait_time)
 
     def generate(self, prompt: str, system_prompt: str = "You are a helpful assistant.",
-                 max_retries: int = 5, temperature: Optional[float] = None) -> tuple:
+                 max_retries: int = 5, temperature: Optional[float] = None,
+                 max_completion_tokens: Optional[int] = None) -> tuple:
         """
         Generates a text completion given a prompt and system instruction.
         Retries automatically on 429 RateLimitErrors.
         
         Args:
             temperature: Sampling temperature. None uses the API default.
+            max_completion_tokens: Maximum tokens in the completion. None uses the API default.
         
         Returns:
             tuple: (content_str, usage_dict) where usage_dict has
@@ -73,6 +75,8 @@ class LLMClient:
         create_kwargs = dict(messages=messages, model=self.default_model, stream=False)
         if temperature is not None:
             create_kwargs["temperature"] = temperature
+        if max_completion_tokens is not None:
+            create_kwargs["max_completion_tokens"] = max_completion_tokens
         
         for attempt in range(max_retries):
             try:
@@ -100,7 +104,7 @@ class LLMClient:
                 return content, usage
                 
             except RateLimitError as e:
-                wait_time = (2 ** attempt) * 2  # Exponential backoff: 2, 4, 8, 16...
+                wait_time = min((2 ** attempt) * 2, 60)  # Exponential backoff capped at 60s
                 print(f"[API Queue Error] High traffic (429). Retrying in {wait_time}s (Attempt {attempt+1}/{max_retries})...")
                 time.sleep(wait_time)
                 
