@@ -3,28 +3,148 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import argparse
+import time
+import json
+from string import Template
 from tqdm import tqdm
 import pandas as pd
-from solver_select_pipeline.pipeline_router import LogicPipelineRouter
+from solver_select_pipeline.llm_client import LLMClient
 from solver_select_pipeline.dataset_loader import LogicDatasetLoader
+from solver_select_pipeline.prompts import (
+    PAPER_DECOMPOSITION_PROMPT,
+    ADAPTIVE_SELECTION_PROMPT,
+)
+
+# ── Label Mapping ──────────────────────────────────────────────────────────────
+GOLD_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+
+STRATEGIES = {
+    "decomposition": {
+        "name": "Paper Decomposition",
+        "template": PAPER_DECOMPOSITION_PROMPT,
+        "parser": "decomposition",
+        "label_map": {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+    },
+    "adaptive": {
+        "name": "Adaptive Selection",
+        "template": ADAPTIVE_SELECTION_PROMPT,
+        "parser": "adaptive",
+        "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+    }
+}
+
+def map_label(label: str, label_map: dict = None) -> str:
+    """Map a solver label using the given label map (3-solver scheme)."""
+    if label_map is None:
+        label_map = GOLD_LABEL_MAP
+    return label_map.get(label.strip().upper(), "UNKNOWN")
+
+def _parse_decomposition_response(response: str) -> str:
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        if "result" in data and len(data["result"]) > 0:
+            return data["result"][0].get("problem_type", "UNKNOWN")
+    except Exception:
+        pass
+    return "UNKNOWN"
+
+def _parse_adaptive_response(response: str) -> str:
+    if not response:
+        return "UNKNOWN"
+    clean = response.strip().upper()
+    for solver in ["FOL", "LP", "SAT"]:
+        if solver in clean:
+            return solver
+    return "UNKNOWN"
+
+def _format_adaptive_prompt(problem_text: str) -> str:
+    return Template(ADAPTIVE_SELECTION_PROMPT).safe_substitute(
+        context=problem_text,
+        question="(see context above)",
+        options="(see context above)",
+    )
+
+def _parse_oneshot_response(response: str) -> str:
+    if not response:
+        return "UNKNOWN"
+    clean = response.strip().upper()
+    for s in ["LP", "FOL", "CSP", "SAT"]:
+        if s in clean:
+            return s
+    return "UNKNOWN"
+
+ONESHOT_SYS_PROMPT = (
+    "You are an expert logician. Your task is to classify the provided logical reasoning problem into one of four solver types:\n"
+    "- LP (Logic Programming)\n"
+    "- FOL (First-order Logic)\n"
+    "- CSP (Constraint Satisfaction Problem)\n"
+    "- SAT (Boolean Satisfiability)\n\n"
+    "Respond ONLY with the exact name of the category (LP, FOL, CSP, or SAT).\n\n"
+    "Example 1:\n"
+    "Problem Statement:\n"
+    "Three people sit in a row. Alice does not sit next to Bob. Charlie sits on the left. Who sits in the middle?\n"
+    "Category: CSP\n"
+)
 
 
-def run_single_temperature(problems, temperature):
-    """Run classification evaluation on a set of problems at a given temperature. Returns results list and total usage dict."""
-    router = LogicPipelineRouter(temperature=temperature)
-    router.reset_token_usage()
+def run_single_temperature(problems, temperature, prompt_key):
+    """Run classification evaluation on a set of problems at a given temperature."""
+    strategy = STRATEGIES[prompt_key]
+    parser_type = strategy["parser"]
+    prompt_template = strategy["template"]
+    label_map = strategy["label_map"]
+
+    llm = LLMClient(model="qwen-3-235b-a22b-instruct-2507")
+    llm.reset_usage()
     
     results = []
-    for problem in problems:
-        usage_before = router.get_token_usage()
+    for problem in tqdm(problems, desc=f"Temp={temperature}"):
+        usage_before = llm.get_total_usage()
         
         text = problem.get('text', problem.get('premises', '') + '\n' + problem.get('conclusion', ''))
+        gold_solver = map_label(problem.get('gold_solver', 'UNKNOWN'), GOLD_LABEL_MAP)
         
-        predicted_solver = router.classify_solver_type(text)
-        oneshot_solver = router.classify_solver_oneshot(text)
-        gold_solver = problem.get('gold_solver', 'UNKNOWN')
-        
-        usage_after = router.get_token_usage()
+        # 1. Pipeline prompt
+        if parser_type == "adaptive":
+            prompt = _format_adaptive_prompt(text)
+        else:
+            prompt = prompt_template.format(problem=text)
+            
+        try:
+            response, _, _ = llm.generate(
+                prompt=prompt,
+                system_prompt="", 
+                temperature=temperature,
+                max_completion_tokens=4096,
+                max_retries=5
+            )
+            raw_pred = _parse_adaptive_response(response) if parser_type == "adaptive" else _parse_decomposition_response(response)
+        except Exception:
+            raw_pred = "UNKNOWN"
+        predicted_solver = map_label(raw_pred, label_map)
+
+        # 2. One-shot baseline
+        oneshot_user = f"Problem Statement:\n{text}\nCategory:\n"
+        try:
+            oneshot_resp, _, _ = llm.generate(
+                prompt=oneshot_user,
+                system_prompt=ONESHOT_SYS_PROMPT,
+                temperature=temperature,
+                max_retries=5
+            )
+            raw_oneshot = _parse_oneshot_response(oneshot_resp)
+        except Exception:
+            raw_oneshot = "UNKNOWN"
+            
+        oneshot_solver = map_label(raw_oneshot, STRATEGIES["decomposition"]["label_map"])
+
+        usage_after = llm.get_total_usage()
         problem_tokens = {
             "prompt_tokens": usage_after["prompt_tokens"] - usage_before["prompt_tokens"],
             "completion_tokens": usage_after["completion_tokens"] - usage_before["completion_tokens"],
@@ -44,11 +164,11 @@ def run_single_temperature(problems, temperature):
             "total_tokens": problem_tokens["total_tokens"],
         })
     
-    total_usage = router.get_token_usage()
+    total_usage = llm.get_total_usage()
     return results, total_usage
 
 
-def generate_sweep_plots(summary_df, all_results_df):
+def generate_sweep_plots(summary_df, all_results_df, pipeline_name="Decomposition Pipeline"):
     """Generate accuracy vs temperature and token usage vs temperature plots."""
     try:
         import matplotlib.pyplot as plt
@@ -62,7 +182,7 @@ def generate_sweep_plots(summary_df, all_results_df):
         temp_labels = [str(t) for t in temps]
 
         ax.plot(temp_labels, summary_df['pipeline_accuracy'], 'o-', color='#4C72B0',
-                linewidth=2, markersize=8, label='Decomposition Pipeline')
+                linewidth=2, markersize=8, label=pipeline_name)
         ax.plot(temp_labels, summary_df['oneshot_accuracy'], 's--', color='#DD8452',
                 linewidth=2, markersize=8, label='One-shot Baseline')
         # Annotate each point with temperature + accuracy value
@@ -78,7 +198,7 @@ def generate_sweep_plots(summary_df, all_results_df):
 
         ax.set_xlabel('Temperature', fontsize=12)
         ax.set_ylabel('Accuracy', fontsize=12)
-        ax.set_title('Classification Accuracy vs Temperature', fontsize=14, fontweight='bold')
+        ax.set_title(f'Classification Accuracy vs Temperature ({pipeline_name})', fontsize=14, fontweight='bold')
         ax.set_ylim(0, 1.05)
         ax.legend(loc='best')
         ax.grid(True, alpha=0.3)
@@ -107,7 +227,7 @@ def generate_sweep_plots(summary_df, all_results_df):
 
         ax.set_xlabel('Temperature', fontsize=12)
         ax.set_ylabel('Token Count', fontsize=12)
-        ax.set_title('Total Token Usage vs Temperature', fontsize=14, fontweight='bold')
+        ax.set_title(f'Total Token Usage vs Temperature ({pipeline_name})', fontsize=14, fontweight='bold')
         ax.set_xticks(list(x_pos))
         ax.set_xticklabels(temp_labels)
         ax.legend(loc='upper left')
@@ -125,6 +245,8 @@ def generate_sweep_plots(summary_df, all_results_df):
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate solver classification across multiple temperature values.")
+    parser.add_argument("--prompt", type=str, default="decomposition", choices=list(STRATEGIES.keys()),
+                        help="Prompt strategy to evaluate")
     parser.add_argument("--dataset", type=str, default="mixed",
                         choices=["folio", "mixed", "custom_json", "custom_csv"], help="Dataset origin")
     parser.add_argument("--filepath", type=str, default=None, help="Path to custom dataset file")
@@ -137,6 +259,8 @@ def main():
 
     temperatures = [float(t.strip()) for t in args.temperatures.split(",")]
     print(f"Temperature sweep: {temperatures}")
+    print(f"Prompt Strategy: {STRATEGIES[args.prompt]['name']}")
+    print(f"Using 3-solver mapping (LP, FOL, CSP/SAT->CSP)")
 
     # Load dataset once
     print(f"Loading dataset: {args.dataset}")
@@ -158,7 +282,7 @@ def main():
         print(f"  Running evaluation at temperature = {temp}")
         print(f"{'='*60}")
 
-        results, total_usage = run_single_temperature(problems, temp)
+        results, total_usage = run_single_temperature(problems, temp, args.prompt)
         all_results.extend(results)
 
         df_temp = pd.DataFrame(results)
@@ -195,7 +319,7 @@ def main():
     print(f"{'='*60}")
 
     # Generate plots
-    generate_sweep_plots(summary_df, all_df)
+    generate_sweep_plots(summary_df, all_df, pipeline_name=STRATEGIES[args.prompt]['name'])
 
 
 if __name__ == "__main__":
