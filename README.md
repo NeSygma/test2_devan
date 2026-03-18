@@ -48,10 +48,3 @@ This loads 10 instances per formalism (40 total), randomizes them, and runs each
 ![Classification Results Plot](./media/classification_results_plot.png)
 
 This confirms that explicitly requiring problem decomposition strictly improves LLM semantic classification routing accuracy.
-
-**Full Solver Execution Flow (Translates and Solves logic equations natively):**
-```bash
-python run_eval.py --dataset folio --limit 10
-```
-
-*Note: For full execution flow, you must have the individual solvers (z3, prover9, python-constraint, prolog) natively installed and available in your environment path.*

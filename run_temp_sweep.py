@@ -9,8 +9,8 @@ from solver_select_pipeline.pipeline_router import LogicPipelineRouter
 from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 
 
-def run_single_temperature(problems, temperature, eval_classification_only=True):
-    """Run evaluation on a set of problems at a given temperature. Returns results list and total usage dict."""
+def run_single_temperature(problems, temperature):
+    """Run classification evaluation on a set of problems at a given temperature. Returns results list and total usage dict."""
     router = LogicPipelineRouter(temperature=temperature)
     router.reset_token_usage()
     
@@ -18,67 +18,37 @@ def run_single_temperature(problems, temperature, eval_classification_only=True)
     for problem in problems:
         usage_before = router.get_token_usage()
         
-        if eval_classification_only:
-            text = problem.get('text', problem.get('premises', '') + '\n' + problem.get('conclusion', ''))
-            
-            predicted_solver = router.classify_solver_type(text)
-            oneshot_solver = router.classify_solver_oneshot(text)
-            gold_solver = problem.get('gold_solver', 'UNKNOWN')
-            
-            usage_after = router.get_token_usage()
-            problem_tokens = {
-                "prompt_tokens": usage_after["prompt_tokens"] - usage_before["prompt_tokens"],
-                "completion_tokens": usage_after["completion_tokens"] - usage_before["completion_tokens"],
-                "total_tokens": usage_after["total_tokens"] - usage_before["total_tokens"],
-            }
-            
-            results.append({
-                "id": problem['id'],
-                "temperature": temperature,
-                "gold_solver": gold_solver,
-                "predicted_solver": predicted_solver,
-                "oneshot_solver": oneshot_solver,
-                "pipeline_match": predicted_solver == gold_solver,
-                "oneshot_match": oneshot_solver == gold_solver,
-                "prompt_tokens": problem_tokens["prompt_tokens"],
-                "completion_tokens": problem_tokens["completion_tokens"],
-                "total_tokens": problem_tokens["total_tokens"],
-            })
-        else:
-            res = router.execute_problem(
-                premises=problem.get('premises', ''),
-                conclusion=problem.get('conclusion', ''),
-            )
-            gold_label = str(problem.get('label', ''))
-            match = False
-            if gold_label.lower() == "true" and res['status'].lower() == "true":
-                match = True
-            elif gold_label.lower() in ["false", "uncertain"] and res['status'].lower() in ["false/uncertain", "uncertain", "false"]:
-                match = True
-            
-            usage_after = router.get_token_usage()
-            problem_tokens = {
-                "prompt_tokens": usage_after["prompt_tokens"] - usage_before["prompt_tokens"],
-                "completion_tokens": usage_after["completion_tokens"] - usage_before["completion_tokens"],
-                "total_tokens": usage_after["total_tokens"] - usage_before["total_tokens"],
-            }
-            
-            results.append({
-                "id": problem['id'],
-                "temperature": temperature,
-                "chosen_solver": res['solver'],
-                "solver_status": res['status'],
-                "match": match,
-                "prompt_tokens": problem_tokens["prompt_tokens"],
-                "completion_tokens": problem_tokens["completion_tokens"],
-                "total_tokens": problem_tokens["total_tokens"],
-            })
+        text = problem.get('text', problem.get('premises', '') + '\n' + problem.get('conclusion', ''))
+        
+        predicted_solver = router.classify_solver_type(text)
+        oneshot_solver = router.classify_solver_oneshot(text)
+        gold_solver = problem.get('gold_solver', 'UNKNOWN')
+        
+        usage_after = router.get_token_usage()
+        problem_tokens = {
+            "prompt_tokens": usage_after["prompt_tokens"] - usage_before["prompt_tokens"],
+            "completion_tokens": usage_after["completion_tokens"] - usage_before["completion_tokens"],
+            "total_tokens": usage_after["total_tokens"] - usage_before["total_tokens"],
+        }
+        
+        results.append({
+            "id": problem['id'],
+            "temperature": temperature,
+            "gold_solver": gold_solver,
+            "predicted_solver": predicted_solver,
+            "oneshot_solver": oneshot_solver,
+            "pipeline_match": predicted_solver == gold_solver,
+            "oneshot_match": oneshot_solver == gold_solver,
+            "prompt_tokens": problem_tokens["prompt_tokens"],
+            "completion_tokens": problem_tokens["completion_tokens"],
+            "total_tokens": problem_tokens["total_tokens"],
+        })
     
     total_usage = router.get_token_usage()
     return results, total_usage
 
 
-def generate_sweep_plots(summary_df, all_results_df, eval_classification_only):
+def generate_sweep_plots(summary_df, all_results_df):
     """Generate accuracy vs temperature and token usage vs temperature plots."""
     try:
         import matplotlib.pyplot as plt
@@ -91,29 +61,20 @@ def generate_sweep_plots(summary_df, all_results_df, eval_classification_only):
         temps = summary_df['temperature'].tolist()
         temp_labels = [str(t) for t in temps]
 
-        if eval_classification_only:
-            ax.plot(temp_labels, summary_df['pipeline_accuracy'], 'o-', color='#4C72B0',
-                    linewidth=2, markersize=8, label='Decomposition Pipeline')
-            ax.plot(temp_labels, summary_df['oneshot_accuracy'], 's--', color='#DD8452',
-                    linewidth=2, markersize=8, label='One-shot Baseline')
-            # Annotate each point with temperature + accuracy value
-            for i, t in enumerate(temps):
-                ax.annotate(f"T={t}\n{summary_df['pipeline_accuracy'].iloc[i]:.1%}",
-                            (temp_labels[i], summary_df['pipeline_accuracy'].iloc[i]),
-                            textcoords="offset points", xytext=(0, 12), ha='center', fontsize=8,
-                            color='#4C72B0', fontweight='bold')
-                ax.annotate(f"{summary_df['oneshot_accuracy'].iloc[i]:.1%}",
-                            (temp_labels[i], summary_df['oneshot_accuracy'].iloc[i]),
-                            textcoords="offset points", xytext=(0, -16), ha='center', fontsize=8,
-                            color='#DD8452', fontweight='bold')
-        else:
-            ax.plot(temp_labels, summary_df['accuracy'], 'o-', color='#4C72B0',
-                    linewidth=2, markersize=8, label='Execution Accuracy')
-            for i, t in enumerate(temps):
-                ax.annotate(f"T={t}\n{summary_df['accuracy'].iloc[i]:.1%}",
-                            (temp_labels[i], summary_df['accuracy'].iloc[i]),
-                            textcoords="offset points", xytext=(0, 12), ha='center', fontsize=8,
-                            color='#4C72B0', fontweight='bold')
+        ax.plot(temp_labels, summary_df['pipeline_accuracy'], 'o-', color='#4C72B0',
+                linewidth=2, markersize=8, label='Decomposition Pipeline')
+        ax.plot(temp_labels, summary_df['oneshot_accuracy'], 's--', color='#DD8452',
+                linewidth=2, markersize=8, label='One-shot Baseline')
+        # Annotate each point with temperature + accuracy value
+        for i, t in enumerate(temps):
+            ax.annotate(f"T={t}\n{summary_df['pipeline_accuracy'].iloc[i]:.1%}",
+                        (temp_labels[i], summary_df['pipeline_accuracy'].iloc[i]),
+                        textcoords="offset points", xytext=(0, 12), ha='center', fontsize=8,
+                        color='#4C72B0', fontweight='bold')
+            ax.annotate(f"{summary_df['oneshot_accuracy'].iloc[i]:.1%}",
+                        (temp_labels[i], summary_df['oneshot_accuracy'].iloc[i]),
+                        textcoords="offset points", xytext=(0, -16), ha='center', fontsize=8,
+                        color='#DD8452', fontweight='bold')
 
         ax.set_xlabel('Temperature', fontsize=12)
         ax.set_ylabel('Accuracy', fontsize=12)
@@ -171,13 +132,8 @@ def main():
     parser.add_argument("--temperatures", type=str, default="0.0,0.01,0.1,0.3,0.5,0.7,1.0",
                         help="Comma-separated temperature values to sweep")
     parser.add_argument("--out", type=str, default="temp_sweep_results.csv", help="Output CSV filename")
-    parser.add_argument("--eval-classification-only", action="store_true", default=True,
-                        help="Only evaluate classification (default: True)")
-    parser.add_argument("--full-execution", action="store_true",
-                        help="Run full solver execution instead of classification-only")
 
     args = parser.parse_args()
-    eval_classification_only = not args.full_execution
 
     temperatures = [float(t.strip()) for t in args.temperatures.split(",")]
     print(f"Temperature sweep: {temperatures}")
@@ -202,33 +158,26 @@ def main():
         print(f"  Running evaluation at temperature = {temp}")
         print(f"{'='*60}")
 
-        results, total_usage = run_single_temperature(
-            problems, temp, eval_classification_only=eval_classification_only
-        )
+        results, total_usage = run_single_temperature(problems, temp)
         all_results.extend(results)
 
         df_temp = pd.DataFrame(results)
 
+        pipe_acc = df_temp['pipeline_match'].mean() if len(df_temp) > 0 else 0
+        one_acc = df_temp['oneshot_match'].mean() if len(df_temp) > 0 else 0
+
         row = {
             "temperature": temp,
             "num_problems": len(df_temp),
+            "pipeline_accuracy": pipe_acc,
+            "oneshot_accuracy": one_acc,
             "total_prompt_tokens": total_usage["prompt_tokens"],
             "total_completion_tokens": total_usage["completion_tokens"],
             "total_tokens": total_usage["total_tokens"],
         }
 
-        if eval_classification_only:
-            pipe_acc = df_temp['pipeline_match'].mean() if len(df_temp) > 0 else 0
-            one_acc = df_temp['oneshot_match'].mean() if len(df_temp) > 0 else 0
-            row["pipeline_accuracy"] = pipe_acc
-            row["oneshot_accuracy"] = one_acc
-            print(f"  Pipeline Accuracy: {pipe_acc:.2%}")
-            print(f"  One-shot Accuracy: {one_acc:.2%}")
-        else:
-            acc = df_temp['match'].mean() if len(df_temp) > 0 else 0
-            row["accuracy"] = acc
-            print(f"  Execution Accuracy: {acc:.2%}")
-
+        print(f"  Pipeline Accuracy: {pipe_acc:.2%}")
+        print(f"  One-shot Accuracy: {one_acc:.2%}")
         print(f"  Total Tokens: {total_usage['total_tokens']:,}")
         summary_rows.append(row)
 
@@ -246,7 +195,7 @@ def main():
     print(f"{'='*60}")
 
     # Generate plots
-    generate_sweep_plots(summary_df, all_df, eval_classification_only)
+    generate_sweep_plots(summary_df, all_df)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class LLMClient:
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-oss-120b"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "qwen-3-235b-a22b-instruct-2507"):
         """
         A standard wrapper for the Cerebras cloud LLM API.
         Default model: llama3.1-70b
@@ -51,7 +51,8 @@ class LLMClient:
 
     def generate(self, prompt: str, system_prompt: str = "You are a helpful assistant.",
                  max_retries: int = 5, temperature: Optional[float] = None,
-                 max_completion_tokens: Optional[int] = None) -> tuple:
+                 max_completion_tokens: Optional[int] = None,
+                 reasoning_format: Optional[str] = None) -> tuple:
         """
         Generates a text completion given a prompt and system instruction.
         Retries automatically on 429 RateLimitErrors.
@@ -59,10 +60,12 @@ class LLMClient:
         Args:
             temperature: Sampling temperature. None uses the API default.
             max_completion_tokens: Maximum tokens in the completion. None uses the API default.
+            reasoning_format: If set to 'parsed', returns reasoning in a separate field.
         
         Returns:
-            tuple: (content_str, usage_dict) where usage_dict has
-                   prompt_tokens, completion_tokens, total_tokens.
+            tuple: (content_str, usage_dict, reasoning_str) where usage_dict has
+                   prompt_tokens, completion_tokens, total_tokens and
+                   reasoning_str is the reasoning trace (empty string if not available).
         """
         messages = [
             {"role": "system", "content": system_prompt},
@@ -77,6 +80,8 @@ class LLMClient:
             create_kwargs["temperature"] = temperature
         if max_completion_tokens is not None:
             create_kwargs["max_completion_tokens"] = max_completion_tokens
+        if reasoning_format is not None:
+            create_kwargs["reasoning_format"] = reasoning_format
         
         for attempt in range(max_retries):
             try:
@@ -87,7 +92,13 @@ class LLMClient:
                 self._handle_rate_limit(response.headers)
                 
                 parsed_response = response.parse()
-                content = parsed_response.choices[0].message.content
+                message = parsed_response.choices[0].message
+                content = message.content
+                
+                # Extract reasoning trace if available
+                reasoning = ""
+                if hasattr(message, 'reasoning') and message.reasoning:
+                    reasoning = message.reasoning
                 
                 # Extract token usage
                 usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
@@ -101,7 +112,7 @@ class LLMClient:
                 self._total_usage["completion_tokens"] += usage["completion_tokens"]
                 self._total_usage["total_tokens"] += usage["total_tokens"]
                 
-                return content, usage
+                return content, usage, reasoning
                 
             except RateLimitError as e:
                 wait_time = min((2 ** attempt) * 2, 60)  # Exponential backoff capped at 60s

@@ -1,10 +1,12 @@
 """
 Prompt Comparison Evaluation Script
-Compares PAPER_DECOMPOSITION_PROMPT, PAPER_DECOMPOSITION_PROMPT_V2, and
-ONE_SHOT_CLASSIFICATION_PROMPT for solver classification accuracy and token usage.
-
-All labels are mapped to two solvers: LP (LP+FOL) and CSP (CSP+SAT).
-Uses gpt-oss-120b on Cerebras with per-prompt temperature settings.
+Compares PAPER_DECOMPOSITION_PROMPT vs ADAPTIVE_SELECTION_PROMPT
+for solver classification accuracy and token usage.
+All labels are mapped to three solvers: LP, FOL, and CSP.
+- PAPER_DECOMPOSITION_PROMPT: LP→LP, FOL→FOL, CSP→CSP, SAT→CSP
+- ADAPTIVE_SELECTION_PROMPT: LP→LP, FOL→FOL, SAT→CSP
+Uses qwen-3-235b-a22b-instruct-2507 on Cerebras with temperature=0 for both prompts.
+Outputs a detailed CSV with full prompt, problem, output, and reasoning trace.
 """
 
 import sys
@@ -14,23 +16,32 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import argparse
 import json
 import time
+from string import Template
 from tqdm import tqdm
 import pandas as pd
 from solver_select_pipeline.llm_client import LLMClient
 from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
-    PAPER_DECOMPOSITION_PROMPT_V2,
-    ONE_SHOT_CLASSIFICATION_PROMPT,
+    ADAPTIVE_SELECTION_PROMPT,
 )
 
 # ── Label Mapping ──────────────────────────────────────────────────────────────
-LABEL_MAP = {"LP": "LP", "FOL": "LP", "CSP": "CSP", "SAT": "CSP"}
+# Gold labels (dataset): SAT → CSP, everything else stays
+GOLD_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+
+# Per-prompt prediction maps (3-solver: LP / FOL / CSP)
+# PAPER_DECOMPOSITION outputs LP/FOL/CSP/SAT → map SAT to CSP
+DECOMPOSITION_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+# ADAPTIVE_SELECTION outputs FOL/LP/SAT → map SAT to CSP
+ADAPTIVE_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
 
 
-def map_label(label: str) -> str:
-    """Map a 4-solver label to the 2-solver scheme."""
-    return LABEL_MAP.get(label.strip().upper(), "UNKNOWN")
+def map_label(label: str, label_map: dict = None) -> str:
+    """Map a solver label using the given label map (3-solver scheme)."""
+    if label_map is None:
+        label_map = GOLD_LABEL_MAP
+    return label_map.get(label.strip().upper(), "UNKNOWN")
 
 
 # ── Prompt Evaluation Helpers ──────────────────────────────────────────────────
@@ -52,15 +63,30 @@ def _parse_decomposition_response(response: str) -> str:
     return "UNKNOWN"
 
 
-def _parse_oneshot_response(response: str) -> str:
-    """Extract solver label from a one-shot classification response."""
+def _parse_adaptive_response(response: str) -> str:
+    """Extract solver label from ADAPTIVE_SELECTION_PROMPT response (FOL/LP/SAT)."""
     if not response:
         return "UNKNOWN"
     clean = response.strip().upper()
-    for solver in ["LP", "FOL", "CSP", "SAT"]:
+    # Check in order of specificity
+    for solver in ["FOL", "LP", "SAT"]:
         if solver in clean:
             return solver
     return "UNKNOWN"
+
+
+def _format_adaptive_prompt(problem_text: str) -> str:
+    """Format the ADAPTIVE_SELECTION_PROMPT using the problem text.
+
+    The ADAPTIVE_SELECTION_PROMPT uses ${context}, ${question}, ${options}
+    placeholders. Since the dataset provides a single 'text' field, we pass
+    the entire text as context and mark question/options as embedded.
+    """
+    return Template(ADAPTIVE_SELECTION_PROMPT).safe_substitute(
+        context=problem_text,
+        question="(see context above)",
+        options="(see context above)",
+    )
 
 
 # Default delay between API calls (seconds) to stay under rate limits
@@ -68,13 +94,15 @@ DEFAULT_REQUEST_DELAY = 5.0
 
 
 def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
-                    problems: list, is_oneshot: bool = False,
+                    problems: list, parser: str = "decomposition",
+                    label_map: dict = None,
                     temperature: float = None,
                     request_delay: float = DEFAULT_REQUEST_DELAY) -> dict:
     """
     Run a single prompt strategy over all problems and return results + usage.
 
     Args:
+        parser: 'decomposition' or 'adaptive' — determines how to parse the response.
         request_delay: Seconds to wait between API calls to avoid 429 errors.
 
     Returns dict with keys: results (list of dicts), total_usage (dict).
@@ -96,15 +124,21 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
         # Snapshot usage before
         usage_before = llm.get_total_usage()
 
-        # Format and send prompt
-        prompt = prompt_template.format(problem=text)
+        # Format prompt based on strategy type
+        if parser == "adaptive":
+            prompt = _format_adaptive_prompt(text)
+        else:
+            prompt = prompt_template.format(problem=text)
+
+        reasoning_trace = ""
         try:
-            response, _usage = llm.generate(
+            response, _usage, reasoning_trace = llm.generate(
                 prompt=prompt,
                 system_prompt="",  # SYSTEM instruction is inside the prompt text
                 temperature=temperature,
                 max_completion_tokens=4096,
                 max_retries=10,
+                reasoning_format="parsed",
             )
         except RuntimeError as e:
             # If all retries exhausted, record as error and continue
@@ -112,11 +146,11 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
             response = ""
 
         # Parse prediction
-        if is_oneshot:
-            raw_pred = _parse_oneshot_response(response)
+        if parser == "adaptive":
+            raw_pred = _parse_adaptive_response(response)
         else:
             raw_pred = _parse_decomposition_response(response)
-        predicted = map_label(raw_pred)
+        predicted = map_label(raw_pred, label_map)
 
         # Token delta
         usage_after = llm.get_total_usage()
@@ -133,6 +167,11 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
+            # Detailed trace columns
+            "full_prompt": prompt,
+            "problem_text": text,
+            "raw_response": response,
+            "reasoning_trace": reasoning_trace if reasoning_trace else response,
         })
 
     total_usage = llm.get_total_usage()
@@ -159,29 +198,29 @@ def generate_plots(summary: dict, output_dir: str = "media"):
     # Short display labels
     short_names = []
     for n in names:
-        if "V2" in n:
-            short_names.append("Decomposition V2\n(2-solver)")
+        if "ADAPTIVE" in n.upper():
+            short_names.append("Adaptive\nSelection")
         elif "DECOMPOSITION" in n.upper():
-            short_names.append("Decomposition V1\n(4-solver)")
+            short_names.append("Paper\nDecomposition")
         else:
-            short_names.append("One-Shot\nClassification")
+            short_names.append(n)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
     # ── 1. Accuracy Bar Chart ────────────────────────────────────────────────
-    colors_acc = ["#4C72B0", "#55A868", "#C44E52"]
-    bars = axes[0].bar(short_names, accuracies, color=colors_acc, edgecolor="white",
-                       linewidth=0.8, width=0.55)
+    colors_acc = ["#4C72B0", "#55A868"]
+    bars = axes[0].bar(short_names, accuracies, color=colors_acc[:len(names)],
+                       edgecolor="white", linewidth=0.8, width=0.45)
     axes[0].set_ylim(0, 1.15)
     axes[0].set_ylabel("Accuracy", fontsize=12)
-    axes[0].set_title("Classification Accuracy (2-solver: LP / CSP)", fontsize=13, fontweight="bold")
+    axes[0].set_title("Classification Accuracy (3-solver: LP / FOL / CSP)", fontsize=13, fontweight="bold")
     for bar, acc in zip(bars, accuracies):
         axes[0].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
                      f"{acc:.1%}", ha="center", va="bottom", fontsize=11, fontweight="bold")
 
     # ── 2. Token Usage Stacked Bar Chart ─────────────────────────────────────
     x = np.arange(len(names))
-    width = 0.55
+    width = 0.45
     bars_p = axes[1].bar(x, prompt_tokens, width, label="Prompt Tokens",
                          color="#4C72B0", edgecolor="white", linewidth=0.8)
     bars_c = axes[1].bar(x, completion_tokens, width, bottom=prompt_tokens,
@@ -210,7 +249,8 @@ def generate_plots(summary: dict, output_dir: str = "media"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare prompt strategies for 2-solver classification (LP / CSP)."
+        description="Compare PAPER_DECOMPOSITION_PROMPT vs ADAPTIVE_SELECTION_PROMPT "
+                    "for 3-solver classification (LP / FOL / CSP)."
     )
     parser.add_argument("--limit", type=int, default=5,
                         help="Number of problems per dataset (default: 5)")
@@ -223,40 +263,37 @@ def main():
     problems = LogicDatasetLoader.load_mixed_datasets(limit_per_dataset=args.limit)
     print(f"Loaded {len(problems)} problems.")
 
-    # Map gold labels to 2-solver scheme
+    # Map gold labels to 3-solver scheme (SAT -> CSP)
     for p in problems:
-        p["gold_mapped"] = map_label(p.get("gold_solver", "UNKNOWN"))
+        p["gold_mapped"] = map_label(p.get("gold_solver", "UNKNOWN"), GOLD_LABEL_MAP)
 
     # Print dataset distribution
     gold_counts = pd.Series([p["gold_mapped"] for p in problems]).value_counts()
-    print(f"\nGold label distribution (2-solver):\n{gold_counts.to_string()}\n")
+    print(f"\nGold label distribution (3-solver):\n{gold_counts.to_string()}\n")
 
     # Define prompt strategies to evaluate
-    # Each tuple: (name, template, is_oneshot, temperature)
-    #   - V1: temperature=0
-    #   - V2: temperature=0.01
-    #   - One-shot: temperature=None (API default)
+    # Each tuple: (name, template, parser_type, label_map, temperature)
+    # Both prompts use temperature=0
     strategies = [
-        ("PAPER_DECOMPOSITION_PROMPT",    PAPER_DECOMPOSITION_PROMPT,    False, 0),
-        ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, False, 0.01),
-        ("ONE_SHOT_CLASSIFICATION",       ONE_SHOT_CLASSIFICATION_PROMPT, True,  None),
+        ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      0),
     ]
 
-    # Use a shared LLM client (gpt-oss-120b, resets usage per strategy)
-    llm = LLMClient(model="gpt-oss-120b")
+    # Use a shared LLM client (resets usage per strategy)
+    llm = LLMClient(model="qwen-3-235b-a22b-instruct-2507")
 
     all_rows = []
     summary = {}
 
-    for strat_idx, (name, template, is_oneshot, temp) in enumerate(strategies):
+    for strat_idx, (name, template, parser_type, lmap, temp) in enumerate(strategies):
         # Cooldown between strategies to let the rate limit bucket refill
         if strat_idx > 0:
             print("\n  [Cooldown 5s between strategies...]")
             time.sleep(5)
 
-        temp_str = f"temp={temp}" if temp is not None else "temp=default"
-        print(f"  [{temp_str}]")
-        result = evaluate_prompt(llm, template, name, problems, is_oneshot=is_oneshot, temperature=temp)
+        print(f"  [temp={temp}]")
+        result = evaluate_prompt(llm, template, name, problems,
+                                 parser=parser_type, label_map=lmap, temperature=temp)
 
         # Compute accuracy
         df_strat = pd.DataFrame(result["results"])
@@ -275,8 +312,18 @@ def main():
         print(f"  -> {name}: Accuracy = {accuracy:.2%}  |  "
               f"Tokens = {result['total_usage']['total_tokens']:,}")
 
-    # Save combined CSV
+    # Save combined CSV with detailed columns
     df_all = pd.DataFrame(all_rows)
+    # Reorder columns for clarity
+    col_order = [
+        "prompt_strategy", "id", "problem_text", "full_prompt",
+        "raw_response", "reasoning_trace",
+        "raw_prediction", "prediction", "gold", "match",
+        "prompt_tokens", "completion_tokens", "total_tokens",
+    ]
+    # Only include columns that exist
+    col_order = [c for c in col_order if c in df_all.columns]
+    df_all = df_all[col_order]
     df_all.to_csv(args.out, index=False)
     print(f"\nResults saved to {args.out}")
 
