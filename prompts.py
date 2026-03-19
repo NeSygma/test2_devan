@@ -55,69 +55,53 @@ Problem Statement:
 
 PAPER_DECOMPOSITION_PROMPT_V2 = """SYSTEM:
 You are a logician and reasoning systems expert specializing in symbolic reasoning frameworks. Given a text that may contain one or multiple logical reasoning problems, identify each problem, determine its type, and decompose the text accordingly. Return the result strictly as a JSON object with "result" containing an array of problem objects.
-
-You have exactly two target solver backends:
-- **Clingo** (Answer Set Programming) for LP problems
-- **Z3** (SMT solver) for CSP problems
-
 Specifically, your task is to:
 1. First, analyze the input text to identify how many distinct reasoning problems it contains.
-2. For each identified problem, determine its type from the following two categories:
-
-- Logic Programming (LP) — solved using **Clingo (ASP)**:
-  Problems that involve reasoning from facts and rules to derive conclusions. This includes:
-  • Deductive reasoning: drawing conclusions step by step from known facts and if-then rules (e.g., "If X is a bird then X can fly", "Socrates is a man, all men are mortal").
-  • First-order logic style reasoning: problems with universal ("for all") or existential ("there exists") quantifiers and complex relationships among entities. Clingo's ASP paradigm naturally handles these through rules, integrity constraints, and grounding over domains.
-  • Rule chaining, reachability, genealogies, and classification based on logical conditions.
-  Guideline: If the problem is primarily about deriving what is true given a set of facts and rules, classify it as LP.
-
-- Constraint Satisfaction Problem (CSP) — solved using **Z3 (SMT)**:
-  Problems that involve finding assignments to variables or verifying whether a configuration satisfies a set of constraints. This includes:
-  • Classic constraint satisfaction: assigning values to variables within finite domains such that all constraints are met (e.g., scheduling, ordering, allocation, puzzles like Einstein's riddle).
-  • Satisfiability checking: determining whether a particular configuration or entity conforms to a set of logical conditions. This covers analytical reasoning questions where you must verify if a description satisfies given requirements.
-  • Problems mixing arithmetic, inequalities, and propositional logic.
-  Guideline: If the problem is primarily about checking constraints, satisfying conditions, or finding valid assignments, classify it as CSP.
-
+2. For each identified problem, determine its type from the following categories:
+- Logic Programming (LP): Problems where conclusions are deduced step by step from known facts and rules, often operating under a closed-world assumption and capable of non-monotonic default reasoning or computing transitive closures. It is highly effective for explicit deductive reasoning, expert systems, and combinatorial search using generate-define-test methodologies.
+- First-order Logic (FOL): Problems requiring expressive monotonic reasoning under an open-world assumption, involving complex entity relationships, universal ("for all"), and existential ("there exists") quantifiers. Pure FOL problems can be semi-decidable, making them distinct from bounded logic programming tasks.
+- CSP/SAT/SMT: A unified category for problems that involve combinatorial optimization, strict boolean satisfiability, or continuous-variable algebra. These problems require determining if a configuration satisfies a set of constraints (SAT), finding optimal value assignments over finite discrete domains (CSP), or solving constraints across infinite and continuous domains like real numbers modulo background theories (SMT).
 To guide your classification:
-- If the focus is on reasoning from facts and rules to reach a conclusion, classify as LP (Clingo).
-- If the focus is on satisfying constraints, checking configurations, assigning values under restrictions, or analytical reasoning, classify as CSP (Z3).
-
+- Consider whether the problem leans towards reasoning from facts, defaults, and relationships (LP or FOL) or towards optimizing assignments and checking the satisfiability of arithmetic/boolean constraints (CSP/SAT/SMT).
+- in CSP/SAT/SMT, the problems can be either multiple-choice questions or free-form, open-ended constraint puzzles.
+- use CSP/SAT/SMT if the problem involves ordering, sequencing, or allocating items based on available constraints.
+- Between LP and FOL, use LP if the reasoning relies on explicit chaining, rule-based deduction, or non-monotonic exceptions; 
+- use FOL if it requires complex quantified statements or open-world assumptions.
+- FOL problems may involve implicit quantifiers disguised as natural language generalizations (e.g., categorical statements like "A is a B").
 3. For each problem, create a JSON object with the following structure:
 - "problem_id" (str): A unique identifier following the pattern "ques_1", "ques_2", etc., based on the order of appearance.
-- "problem_type" (str): The type classification. The value must be one of LP, CSP.
+- "problem_type" (str): The type classification. The value must be one of LP, FOL, or CSP/SAT/SMT.
 - Based on the problem type, include the appropriate fields:
-  - If problem_type == "LP":
-    - "premise" (str): the given premise.
-    - "hypothesis" (str): the hypothesis to be evaluated for truth.
-    - "options" (list): the provided answer options.
-  - If problem_type == "CSP":
-    - "context" (str): background description.
-    - "question" (str): the specific question being asked.
-    - "options" (list): the provided answer options.
-Preserve any existing option labels (e.g., "A)", "B)"). If options have no labels, assign labels 'A)', 'B)', 'C)', ... automatically.
-
+- If problem_type == "LP" or "FOL":
+- "premise" (str): the given premise.
+- "hypothesis" (str): the hypothesis to be evaluated for truth.
+- "options" (list): the provided answer options if available.
+- If problem_type == "CSP/SAT/SMT":
+- "context" (str): background description, constraints, or trial parameters.
+- "question" (str): the specific question being asked or sample description to verify.
+- "options" (list): the provided answer options if available.
+Preserve any existing option labels (e.g., "A)", "B)"). If options have no labels, assign labels 'A)', 'B)', 'C)',... automatically.
 4. Extract or analyze the overall goal of the input text:
 - FIRST, try to extract any explicitly stated overall goal or instruction from the text (e.g., "Answer the above questions one by one", "Solve all problems to find the final answer", etc.)
 - If no explicit goal is found, analyze the relationship between problems and write a brief description:
-  - Multiple independent problems: "Solve multiple independent reasoning problems"
-  - Subproblems contributing to main problem: "Solve subproblems to address the main complex problem"
-  - Sequential dependent problems: "Solve problems in sequence with dependencies"
-  - Single problem: "Solve the reasoning problem"
-
+- Multiple independent problems: "Solve multiple independent reasoning problems"
+- Subproblems contributing to main problem: "Solve subproblems to address the main complex problem"
+- Sequential dependent problems: "Solve problems in sequence with dependencies"
+- Single problem: "Solve the reasoning problem"
 Return a JSON object with two keys:
 - "result": an array containing all identified problems
 - "overall_goal": the extracted goal text or a brief analysis-based description
-
 Example output format:
+{{
 "result": [
-  "problem_id": "ques_1",
-  "problem_type": "CSP",
-  "context": "...",
-  "question": "...",
-  "options": ["A) ...", "B) ..."]
+"problem_id": "ques_1",
+"problem_type": "CSP/SAT/SMT",
+"context": "...",
+"question": "...",
+"options": ["A) ...", "B) ..."]
 ],
 "overall_goal": "Answer the above questions one by one"
-
+}}
 USER:
 Problem Statement:
 {problem}

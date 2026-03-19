@@ -5,7 +5,7 @@ for solver classification accuracy and token usage.
 All labels are mapped to three solvers: LP, FOL, and CSP.
 - PAPER_DECOMPOSITION_PROMPT: LP→LP, FOL→FOL, CSP→CSP, SAT→CSP
 - ADAPTIVE_SELECTION_PROMPT: LP→LP, FOL→FOL, SAT→CSP
-Uses qwen-3-235b-a22b-instruct-2507 on Cerebras with temperature=0 for both prompts.
+Uses openai/gpt-oss-120b on Nvidia NIM with temperature=0 for both prompts.
 Outputs a detailed CSV with full prompt, problem, output, and reasoning trace.
 """
 
@@ -23,6 +23,7 @@ from solver_select_pipeline.llm_client import LLMClient
 from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
+    PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
 )
 
@@ -33,6 +34,8 @@ GOLD_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
 # Per-prompt prediction maps (3-solver: LP / FOL / CSP)
 # PAPER_DECOMPOSITION outputs LP/FOL/CSP/SAT → map SAT to CSP
 DECOMPOSITION_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+# PAPER_DECOMPOSITION_V2 outputs LP, FOL, CSP/SAT/SMT → map CSP/SAT/SMT to CSP
+DECOMPOSITION_V2_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP/SAT/SMT": "CSP"}
 # ADAPTIVE_SELECTION outputs FOL/LP/SAT → map SAT to CSP
 ADAPTIVE_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
 
@@ -200,6 +203,8 @@ def generate_plots(summary: dict, output_dir: str = "media"):
     for n in names:
         if "ADAPTIVE" in n.upper():
             short_names.append("Adaptive\nSelection")
+        elif "V2" in n.upper():
+            short_names.append("Paper\nDecomp\nV2")
         elif "DECOMPOSITION" in n.upper():
             short_names.append("Paper\nDecomposition")
         else:
@@ -273,14 +278,14 @@ def main():
 
     # Define prompt strategies to evaluate
     # Each tuple: (name, template, parser_type, label_map, temperature)
-    # Both prompts use temperature=0
     strategies = [
         ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
-        ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      0),
+        ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0.3),
+        ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      1),
     ]
 
     # Use a shared LLM client (resets usage per strategy)
-    llm = LLMClient(model="qwen-3-235b-a22b-instruct-2507")
+    llm = LLMClient(model="openai/gpt-oss-120b")
 
     all_rows = []
     summary = {}

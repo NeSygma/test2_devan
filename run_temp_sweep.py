@@ -12,6 +12,7 @@ from solver_select_pipeline.llm_client import LLMClient
 from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
+    PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
 )
 
@@ -24,6 +25,12 @@ STRATEGIES = {
         "template": PAPER_DECOMPOSITION_PROMPT,
         "parser": "decomposition",
         "label_map": {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+    },
+    "decomposition_v2": {
+        "name": "Paper Decomposition V2",
+        "template": PAPER_DECOMPOSITION_PROMPT_V2,
+        "parser": "decomposition",
+        "label_map": {"LP": "LP", "FOL": "FOL", "CSP/SAT/SMT": "CSP"}
     },
     "adaptive": {
         "name": "Adaptive Selection",
@@ -100,7 +107,7 @@ def run_single_temperature(problems, temperature, prompt_key):
     prompt_template = strategy["template"]
     label_map = strategy["label_map"]
 
-    llm = LLMClient(model="qwen-3-235b-a22b-instruct-2507")
+    llm = LLMClient(model="openai/gpt-oss-120b")
     llm.reset_usage()
     
     results = []

@@ -2,103 +2,101 @@ import os
 import time
 import logging
 from typing import Optional
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
+
 try:
-    from cerebras.cloud.sdk import Cerebras
+    from openai import OpenAI, RateLimitError
 except ImportError:
-    print("Warning: cerebras-cloud-sdk not installed.")
-    Cerebras = None
+    print("Warning: openai not installed. Please pip install openai")
+    OpenAI = None
+    RateLimitError = Exception
 
 logger = logging.getLogger(__name__)
 
 class LLMClient:
-    def __init__(self, api_key: Optional[str] = None, model: str = "qwen-3-235b-a22b-instruct-2507"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "openai/gpt-oss-120b"):
         """
-        A standard wrapper for the Cerebras cloud LLM API.
-        Default model: llama3.1-70b
+        A wrapper for the Nvidia NIM LLM API using OpenAI SDK.
+        Default model: openai/gpt-oss-120b
         """
-        key = api_key or os.environ.get("CEREBRAS_API_KEY")
-        if not key:
-            raise ValueError("CEREBRAS_API_KEY is not set.")
-            
-        self.client = Cerebras(api_key=key)
+        # Prioritize passed-in key, then env NVIDiA_API_KEY, then the provided testing key
+        key = api_key or os.environ.get("NVIDIA_API_KEY") or "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"
+        
+        self.client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=key
+        )
         self.default_model = model
         self._total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         
     def _handle_rate_limit(self, headers):
-        """Monitors Cerebras API token bucket rate limit headers and sleeps if necessary."""
-        rem_req = headers.get("x-ratelimit-remaining-requests-day")
-        rem_tok = headers.get("x-ratelimit-remaining-tokens-minute")
-        res_req = headers.get("x-ratelimit-reset-requests-day")
-        res_tok = headers.get("x-ratelimit-reset-tokens-minute")
+        """Monitors API rate limit headers and sleeps if necessary."""
+        # Standard OpenAI rate limit headers from Nvidia NIM
+        rem_req = headers.get("x-ratelimit-remaining-requests")
+        rem_tok = headers.get("x-ratelimit-remaining-tokens")
         
         if rem_req and rem_tok:
-            logger.debug(f"Rate Limit: {rem_req} requests/day, {rem_tok} tokens/min remaining")
-
-        if rem_req and res_req and int(rem_req) < 10:
-            wait_time = float(res_req)
-            print(f"[RateLimit Warning] Approaching daily request limit ({rem_req} left). Sleeping for {wait_time}s")
-            time.sleep(wait_time)
-            
-        if rem_tok and res_tok and int(rem_tok) < 10000:
-            wait_time = float(res_tok)
-            print(f"[RateLimit Warning] Approaching minute token limit ({rem_tok} left). Sleeping for {wait_time}s")
-            time.sleep(wait_time)
+            logger.debug(f"Rate Limit: {rem_req} requests, {rem_tok} tokens remaining")
 
     def generate(self, prompt: str, system_prompt: str = "You are a helpful assistant.",
                  max_retries: int = 5, temperature: Optional[float] = None,
                  max_completion_tokens: Optional[int] = None,
-                 reasoning_format: Optional[str] = None) -> tuple:
+                 top_p: Optional[float] = None,
+                 **kwargs) -> tuple:
         """
         Generates a text completion given a prompt and system instruction.
-        Retries automatically on 429 RateLimitErrors.
+        Retries automatically on RateLimitErrors.
         
         Args:
-            temperature: Sampling temperature. None uses the API default.
-            max_completion_tokens: Maximum tokens in the completion. None uses the API default.
-            reasoning_format: If set to 'parsed', returns reasoning in a separate field.
+            temperature: Sampling temperature.
+            max_completion_tokens: Maximum tokens in the completion.
+            top_p: Top P sampling.
+            **kwargs: Extra arguments passed to OpenAI completions.create (e.g. interchangeable)
         
         Returns:
-            tuple: (content_str, usage_dict, reasoning_str) where usage_dict has
-                   prompt_tokens, completion_tokens, total_tokens and
-                   reasoning_str is the reasoning trace (empty string if not available).
+            tuple: (content_str, usage_dict, reasoning_str)
         """
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ]
         
-        from cerebras.cloud.sdk import RateLimitError
-        
-        # Build API kwargs
+        # Build API create parameters
         create_kwargs = dict(messages=messages, model=self.default_model, stream=False)
+        
         if temperature is not None:
             create_kwargs["temperature"] = temperature
+        if top_p is not None:
+            create_kwargs["top_p"] = top_p
         if max_completion_tokens is not None:
-            create_kwargs["max_completion_tokens"] = max_completion_tokens
-        if reasoning_format is not None:
-            create_kwargs["reasoning_format"] = reasoning_format
+            # Note: For OpenAI client, max_tokens is typically used
+            create_kwargs["max_tokens"] = max_completion_tokens
+            
+        # Optional backward compatibility kwargs
+        kwargs.pop("reasoning_format", None) # Remove it if passed by old scripts, handled natively
+        create_kwargs.update(kwargs)
         
         for attempt in range(max_retries):
             try:
-                # Use with_raw_response to access headers
+                # Use raw response object to inspect headers and parsed choice correctly
                 response = self.client.chat.completions.with_raw_response.create(**create_kwargs)
                 
-                # Check and handle rate limits
-                self._handle_rate_limit(response.headers)
+                if response.headers:
+                    self._handle_rate_limit(response.headers)
                 
                 parsed_response = response.parse()
                 message = parsed_response.choices[0].message
-                content = message.content
+                content = message.content or ""
                 
-                # Extract reasoning trace if available
-                reasoning = ""
-                if hasattr(message, 'reasoning') and message.reasoning:
-                    reasoning = message.reasoning
+                # Support DeepSeek-R1 structured reasoning via reasoning_content property 
+                reasoning = getattr(message, "reasoning_content", "")
+                if not reasoning and hasattr(message, "reasoning"):
+                    reasoning = getattr(message, "reasoning", "")
                 
                 # Extract token usage
                 usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
@@ -115,18 +113,22 @@ class LLMClient:
                 return content, usage, reasoning
                 
             except RateLimitError as e:
-                wait_time = min((2 ** attempt) * 2, 60)  # Exponential backoff capped at 60s
+                wait_time = min((2 ** attempt) * 2, 60)
                 print(f"[API Queue Error] High traffic (429). Retrying in {wait_time}s (Attempt {attempt+1}/{max_retries})...")
                 time.sleep(wait_time)
+            except Exception as e:
+                # To prevent blocking completely on other weird network errors, we also retry here 
+                # but log the exception type
+                wait_time = min((2 ** attempt) * 2, 60)
+                print(f"[API Error] Unexpected exact error {e}. Retrying in {wait_time}s (Attempt {attempt+1}/{max_retries})...")
+                time.sleep(wait_time)
                 
-        # If it failed all retries, raise the last exception
-        print("[API Queue Error] Max retries reached. Failing.")
-        raise RuntimeError(f"Failed after {max_retries} retries due to rate limiting.")
+        # If it failed all retries
+        print("[API Action] Max retries reached. Failing.")
+        raise RuntimeError(f"Failed after {max_retries} retries.")
 
     def get_total_usage(self) -> dict:
-        """Returns accumulated token usage across all generate() calls."""
         return dict(self._total_usage)
 
     def reset_usage(self):
-        """Resets the accumulated token usage counters."""
         self._total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}

@@ -3,7 +3,7 @@ from solver_select_pipeline.prompts import PAPER_DECOMPOSITION_PROMPT
 import json
 
 class LogicPipelineRouter:
-    def __init__(self, api_key=None, model="qwen-3-235b-a22b-instruct-2507", temperature=None):
+    def __init__(self, api_key=None, model="openai/gpt-oss-120b", temperature=None):
         self.llm = LLMClient(api_key=api_key, model=model)
         self.temperature = temperature
 
