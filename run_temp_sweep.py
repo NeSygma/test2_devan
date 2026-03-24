@@ -14,6 +14,7 @@ from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
     PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
+    FEW_SHOT_CLASSIFICATION_PROMPT,
 )
 
 # ── Label Mapping ──────────────────────────────────────────────────────────────
@@ -37,6 +38,12 @@ STRATEGIES = {
         "template": ADAPTIVE_SELECTION_PROMPT,
         "parser": "adaptive",
         "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+    },
+    "few_shot": {
+        "name": "Few-shot Classification",
+        "template": FEW_SHOT_CLASSIFICATION_PROMPT,
+        "parser": "few_shot",
+        "label_map": {"LP": "LP", "FOL": "FOL", "CSP": "CSP"}
     }
 }
 
@@ -86,6 +93,15 @@ def _parse_oneshot_response(response: str) -> str:
             return s
     return "UNKNOWN"
 
+def _parse_few_shot_response(response: str) -> str:
+    if not response:
+        return "UNKNOWN"
+    clean = response.strip().upper()
+    for s in ["LP", "FOL", "CSP"]:
+        if s in clean:
+            return s
+    return "UNKNOWN"
+
 ONESHOT_SYS_PROMPT = (
     "You are an expert logician. Your task is to classify the provided logical reasoning problem into one of four solver types:\n"
     "- LP (Logic Programming)\n"
@@ -131,7 +147,12 @@ def run_single_temperature(problems, temperature, prompt_key):
                 max_completion_tokens=4096,
                 max_retries=5
             )
-            raw_pred = _parse_adaptive_response(response) if parser_type == "adaptive" else _parse_decomposition_response(response)
+            if parser_type == "adaptive":
+                raw_pred = _parse_adaptive_response(response)
+            elif parser_type == "few_shot":
+                raw_pred = _parse_few_shot_response(response)
+            else:
+                raw_pred = _parse_decomposition_response(response)
         except Exception:
             raw_pred = "UNKNOWN"
         predicted_solver = map_label(raw_pred, label_map)

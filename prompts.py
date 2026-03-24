@@ -75,12 +75,12 @@ To guide your classification:
 - If problem_type == "LP" or "FOL":
 - "premise" (str): the given premise.
 - "hypothesis" (str): the hypothesis to be evaluated for truth.
-- "options" (list): the provided answer options if available.
+- "options" (list): the provided answer options if present.
 - If problem_type == "CSP/SAT/SMT":
 - "context" (str): background description, constraints, or trial parameters.
 - "question" (str): the specific question being asked or sample description to verify.
-- "options" (list): the provided answer options if available.
-Preserve any existing option labels (e.g., "A)", "B)"). If options have no labels, assign labels 'A)', 'B)', 'C)',... automatically.
+- "options" (list): the provided answer options if present.
+If options are present, preserve any existing option labels (e.g., "A)", "B)"). If the present options have no labels, assign labels 'A)', 'B)', 'C)',... automatically.
 4. Extract or analyze the overall goal of the input text:
 - FIRST, try to extract any explicitly stated overall goal or instruction from the text (e.g., "Answer the above questions one by one", "Solve all problems to find the final answer", etc.)
 - If no explicit goal is found, analyze the relationship between problems and write a brief description:
@@ -157,4 +157,31 @@ Problem Statement:
 Category:
 """
 
+FEW_SHOT_CLASSIFICATION_PROMPT = """SYSTEM:
+You are an expert logician. Your task is to classify the provided logical reasoning problem into one of three solver types:
+- LP (Logic Programming)
+- FOL (First-order Logic)
+- CSP (Constraint Satisfaction Problem)
 
+Respond ONLY with the exact name of the category (LP, FOL, or CSP).
+
+Example 1:
+Problem Statement:
+If someone is a bird and does not have a known exception to flying, then they can fly. Tweety is a bird. Penguins are birds but cannot fly. Is Tweety able to fly?
+Category: LP
+
+Example 2:
+Problem Statement:
+All mammals are warm-blooded. No reptiles are warm-blooded. Some pets are mammals. Some pets are reptiles. Is it true that there exists a pet that is warm-blooded?
+Category: FOL
+
+Example 3:
+Problem Statement:
+Three people sit in a row. Alice does not sit next to Bob. Charlie sits on the left. Who sits in the middle?
+Category: CSP
+
+USER:
+Problem Statement:
+{problem}
+Category:
+"""
