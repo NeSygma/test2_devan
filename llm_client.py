@@ -25,7 +25,7 @@ class LLMClient:
         Default model: openai/gpt-oss-120b
         """
         # Prioritize passed-in key, then env NVIDiA_API_KEY, then the provided testing key
-        key = api_key or os.environ.get("NVIDIA_API_KEY") or "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"
+        key = api_key or os.environ.get("NVIDIA_API_KEY")
         
         self.client = OpenAI(
             base_url="https://integrate.api.nvidia.com/v1",

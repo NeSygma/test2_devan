@@ -25,6 +25,7 @@ from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
     PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
+    FEW_SHOT_CLASSIFICATION_PROMPT,
 )
 
 # ── Label Mapping ──────────────────────────────────────────────────────────────
@@ -38,6 +39,8 @@ DECOMPOSITION_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
 DECOMPOSITION_V2_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP/SAT/SMT": "CSP"}
 # ADAPTIVE_SELECTION outputs FOL/LP/SAT → map SAT to CSP
 ADAPTIVE_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+# FEW_SHOT_CLASSIFICATION outputs LP/FOL/CSP → direct map
+FEW_SHOT_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP"}
 
 
 def map_label(label: str, label_map: dict = None) -> str:
@@ -73,6 +76,17 @@ def _parse_adaptive_response(response: str) -> str:
     clean = response.strip().upper()
     # Check in order of specificity
     for solver in ["FOL", "LP", "SAT"]:
+        if solver in clean:
+            return solver
+    return "UNKNOWN"
+
+
+def _parse_few_shot_response(response: str) -> str:
+    """Extract solver label from FEW_SHOT_CLASSIFICATION_PROMPT response (LP/FOL/CSP)."""
+    if not response:
+        return "UNKNOWN"
+    clean = response.strip().upper()
+    for solver in ["FOL", "CSP", "LP"]:
         if solver in clean:
             return solver
     return "UNKNOWN"
@@ -151,6 +165,8 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
         # Parse prediction
         if parser == "adaptive":
             raw_pred = _parse_adaptive_response(response)
+        elif parser == "few_shot":
+            raw_pred = _parse_few_shot_response(response)
         else:
             raw_pred = _parse_decomposition_response(response)
         predicted = map_label(raw_pred, label_map)
@@ -207,6 +223,8 @@ def generate_plots(summary: dict, output_dir: str = "media"):
             short_names.append("Paper\nDecomp\nV2")
         elif "DECOMPOSITION" in n.upper():
             short_names.append("Paper\nDecomposition")
+        elif "FEW_SHOT" in n.upper():
+            short_names.append("Few-Shot\nClass")
         else:
             short_names.append(n)
 
@@ -282,6 +300,7 @@ def main():
         ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
         ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0.3),
         ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      1),
+        ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
     ]
 
     # Use a shared LLM client (resets usage per strategy)
