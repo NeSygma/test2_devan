@@ -14,6 +14,8 @@ from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
     PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
+    ADAPTIVE_SELECTION_PROMPT_V2,
+    ADAPTIVE_SELECTION_PROMPT_V3,
     FEW_SHOT_CLASSIFICATION_PROMPT,
 )
 
@@ -37,6 +39,18 @@ STRATEGIES = {
         "name": "Adaptive Selection",
         "template": ADAPTIVE_SELECTION_PROMPT,
         "parser": "adaptive",
+        "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+    },
+    "adaptive_v2": {
+        "name": "Adaptive Selection V2",
+        "template": ADAPTIVE_SELECTION_PROMPT_V2,
+        "parser": "adaptive_v2",
+        "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+    },
+    "adaptive_v3": {
+        "name": "Adaptive Selection V3",
+        "template": ADAPTIVE_SELECTION_PROMPT_V3,
+        "parser": "adaptive_v3",
         "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
     },
     "few_shot": {
@@ -77,8 +91,38 @@ def _parse_adaptive_response(response: str) -> str:
             return solver
     return "UNKNOWN"
 
-def _format_adaptive_prompt(problem_text: str) -> str:
-    return Template(ADAPTIVE_SELECTION_PROMPT).safe_substitute(
+def _parse_adaptive_v2_response(response: str) -> str:
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        return data.get("problem_type", "UNKNOWN")
+    except Exception:
+        pass
+    return "UNKNOWN"
+
+def _parse_adaptive_v3_response(response: str) -> str:
+    if not response:
+        return "UNKNOWN"
+    clean = response.strip().upper()
+    prefix = "CHOSEN SYMBOLIC LANGUANGE"
+    if prefix in clean:
+        after_prefix = clean.split(prefix)[-1]
+        for solver in ["FOL", "LP", "SAT"]:
+            if solver in after_prefix:
+                return solver
+    # Fallback broadly just in case the model dropped the prefix
+    for solver in ["FOL", "LP", "SAT"]:
+        if solver in clean:
+            return solver
+    return "UNKNOWN"
+
+def _format_adaptive_prompt(prompt_template: str, problem_text: str) -> str:
+    return Template(prompt_template).safe_substitute(
         context=problem_text,
         question="(see context above)",
         options="(see context above)",
@@ -134,8 +178,8 @@ def run_single_temperature(problems, temperature, prompt_key):
         gold_solver = map_label(problem.get('gold_solver', 'UNKNOWN'), GOLD_LABEL_MAP)
         
         # 1. Pipeline prompt
-        if parser_type == "adaptive":
-            prompt = _format_adaptive_prompt(text)
+        if parser_type.startswith("adaptive"):
+            prompt = _format_adaptive_prompt(prompt_template, text)
         else:
             prompt = prompt_template.format(problem=text)
             
@@ -149,6 +193,10 @@ def run_single_temperature(problems, temperature, prompt_key):
             )
             if parser_type == "adaptive":
                 raw_pred = _parse_adaptive_response(response)
+            elif parser_type == "adaptive_v2":
+                raw_pred = _parse_adaptive_v2_response(response)
+            elif parser_type == "adaptive_v3":
+                raw_pred = _parse_adaptive_v3_response(response)
             elif parser_type == "few_shot":
                 raw_pred = _parse_few_shot_response(response)
             else:

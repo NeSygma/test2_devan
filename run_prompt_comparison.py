@@ -25,6 +25,8 @@ from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
     PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
+    ADAPTIVE_SELECTION_PROMPT_V2,
+    ADAPTIVE_SELECTION_PROMPT_V3,
     FEW_SHOT_CLASSIFICATION_PROMPT,
 )
 
@@ -81,6 +83,39 @@ def _parse_adaptive_response(response: str) -> str:
     return "UNKNOWN"
 
 
+def _parse_adaptive_v2_response(response: str) -> str:
+    """Extract solver label from ADAPTIVE_SELECTION_PROMPT_V2 json response."""
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        return data.get("problem_type", "UNKNOWN")
+    except Exception:
+        pass
+    return "UNKNOWN"
+
+
+def _parse_adaptive_v3_response(response: str) -> str:
+    if not response:
+        return "UNKNOWN"
+    clean = response.strip().upper()
+    prefix = "CHOSEN SYMBOLIC LANGUANGE"
+    if prefix in clean:
+        after_prefix = clean.split(prefix)[-1]
+        for solver in ["FOL", "LP", "SAT"]:
+            if solver in after_prefix:
+                return solver
+    # Fallback broadly just in case the model dropped the prefix
+    for solver in ["FOL", "LP", "SAT"]:
+        if solver in clean:
+            return solver
+    return "UNKNOWN"
+
+
 def _parse_few_shot_response(response: str) -> str:
     """Extract solver label from FEW_SHOT_CLASSIFICATION_PROMPT response (LP/FOL/CSP)."""
     if not response:
@@ -92,14 +127,9 @@ def _parse_few_shot_response(response: str) -> str:
     return "UNKNOWN"
 
 
-def _format_adaptive_prompt(problem_text: str) -> str:
-    """Format the ADAPTIVE_SELECTION_PROMPT using the problem text.
-
-    The ADAPTIVE_SELECTION_PROMPT uses ${context}, ${question}, ${options}
-    placeholders. Since the dataset provides a single 'text' field, we pass
-    the entire text as context and mark question/options as embedded.
-    """
-    return Template(ADAPTIVE_SELECTION_PROMPT).safe_substitute(
+def _format_adaptive_prompt(prompt_template: str, problem_text: str) -> str:
+    """Format the ADAPTIVE_SELECTION_PROMPT using the problem text."""
+    return Template(prompt_template).safe_substitute(
         context=problem_text,
         question="(see context above)",
         options="(see context above)",
@@ -142,8 +172,8 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
         usage_before = llm.get_total_usage()
 
         # Format prompt based on strategy type
-        if parser == "adaptive":
-            prompt = _format_adaptive_prompt(text)
+        if parser.startswith("adaptive"):
+            prompt = _format_adaptive_prompt(prompt_template, text)
         else:
             prompt = prompt_template.format(problem=text)
 
@@ -165,6 +195,10 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
         # Parse prediction
         if parser == "adaptive":
             raw_pred = _parse_adaptive_response(response)
+        elif parser == "adaptive_v2":
+            raw_pred = _parse_adaptive_v2_response(response)
+        elif parser == "adaptive_v3":
+            raw_pred = _parse_adaptive_v3_response(response)
         elif parser == "few_shot":
             raw_pred = _parse_few_shot_response(response)
         else:
@@ -217,7 +251,11 @@ def generate_plots(summary: dict, output_dir: str = "media"):
     # Short display labels
     short_names = []
     for n in names:
-        if "ADAPTIVE" in n.upper():
+        if "ADAPTIVE" in n.upper() and "V3" in n.upper():
+            short_names.append("Adaptive\nSelection V3")
+        elif "ADAPTIVE" in n.upper() and "V2" in n.upper():
+            short_names.append("Adaptive\nSelection V2")
+        elif "ADAPTIVE" in n.upper():
             short_names.append("Adaptive\nSelection")
         elif "V2" in n.upper():
             short_names.append("Paper\nDecomp\nV2")
@@ -300,6 +338,8 @@ def main():
         ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
         ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0.3),
         ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      1),
+        ("ADAPTIVE_SELECTION_PROMPT_V2", ADAPTIVE_SELECTION_PROMPT_V2, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_V3", ADAPTIVE_SELECTION_PROMPT_V3, "adaptive_v3", ADAPTIVE_LABEL_MAP, 0),
         ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
     ]
 

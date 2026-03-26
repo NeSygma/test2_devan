@@ -137,6 +137,112 @@ Analyze the problem structure carefully and select the
 symbolic language that best matches the problem.
 """
 
+ADAPTIVE_SELECTION_PROMPT_V2 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
+the most appropriate symbolic language for solving it.
+You have three symbolic languages to choose from:
+1. FOL (First-Order Logic):
+-Best for: Complex quantifiers, mathematical relationships, formal proofs. -Features: Universal
+(∀) and existential (∃) quantifiers, logical operators (¬, ∨,∧, →), predicates, functions, variables. -
+Typical problems: Mathematical theorems, complex logical relationships, nested quantifications, categorical syllogisms. -Example patterns: “For all X,
+there exists Y such that...”, “If and only if...”, “All X
+are Y ”.
+2. LP (Logic Programming):
+-Best for: Deductive reasoning, propositions, relationship between sentences. -Features: Fact as a
+simple statement with predicates and arguments.
+Rules written in the form of clauses. Query as another fact required to be proved based on known facts
+and rules. -Typical problems: Deductive reasoning,
+propositional logical reasoning. -Example patterns:
+“If something is X then it is Y ”.
+3. SAT ( Boolean Satisfiability Problem): -Best for:
+Constraint satisfaction, spatial/ordering problems,
+discrete choices. -Features: Boolean variables, constraints, position/ordering relationships. -Typical
+problems: Arrangement puzzles, scheduling, spatial
+reasoning. -Example patterns: “X is to the left of
+Y ”, ”X is between Y and Z”.
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+Analyze the problem structure carefully and select the
+symbolic language that best matches the problem.
+Provide your final answer STRICTLY as a JSON object with the following format. Do not include any other text, reasoning or markdown format outside of this JSON block:
+{
+    "problem_type": "YOUR_SELECTION"
+}
+Example output format:
+{
+    "problem_type": "LP"
+}
+"""
+
+ADAPTIVE_SELECTION_PROMPT_V2_1 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
+the most appropriate symbolic language for solving it.
+You have three symbolic languages to choose from:
+1. FOL (First-Order Logic):
+-Best for: Complex quantifiers, mathematical relationships, formal proofs. -Features: Universal
+(∀) and existential (∃) quantifiers, logical operators (¬, ∨,∧, →), predicates, functions, variables. -
+Typical problems: Mathematical theorems, complex logical relationships, nested quantifications, categorical syllogisms. -Example patterns: “For all X,
+there exists Y such that...”, “If and only if...”, “All X
+are Y ”.
+2. LP (Logic Programming):
+-Best for: Deductive reasoning, propositions, relationship between sentences. -Features: Fact as a
+simple statement with predicates and arguments.
+Rules written in the form of clauses. Query as another fact required to be proved based on known facts
+and rules. -Typical problems: Deductive reasoning,
+propositional logical reasoning. -Example patterns:
+“If something is X then it is Y ”.
+3. SAT ( Boolean Satisfiability Problem): -Best for:
+Constraint satisfaction, spatial/ordering problems,
+discrete choices. -Features: Boolean variables, constraints, position/ordering relationships. -Typical
+problems: Arrangement puzzles, scheduling, spatial
+reasoning. -Example patterns: “X is to the left of
+Y ”, ”X is between Y and Z”.
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+Analyze the problem structure carefully and select the
+symbolic language that best matches the problem.
+Provide your final answer after the analysis as a JSON object with the following format.
+{
+    "problem_type": "YOUR_SELECTION"
+}
+Example output format:
+{
+    "problem_type": "LP"
+}
+"""
+
+ADAPTIVE_SELECTION_PROMPT_V3 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
+the most appropriate symbolic language for solving it.
+You have three symbolic languages to choose from:
+1. FOL (First-Order Logic):
+-Best for: Complex quantifiers, mathematical relationships, formal proofs. -Features: Universal
+(∀) and existential (∃) quantifiers, logical operators (¬, ∨,∧, →), predicates, functions, variables. -
+Typical problems: Mathematical theorems, complex logical relationships, nested quantifications, categorical syllogisms. -Example patterns: “For all X,
+there exists Y such that...”, “If and only if...”, “All X
+are Y ”.
+2. LP (Logic Programming):
+-Best for: Deductive reasoning, propositions, relationship between sentences. -Features: Fact as a
+simple statement with predicates and arguments.
+Rules written in the form of clauses. Query as another fact required to be proved based on known facts
+and rules. -Typical problems: Deductive reasoning,
+propositional logical reasoning. -Example patterns:
+“If something is X then it is Y ”.
+3. SAT ( Boolean Satisfiability Problem): -Best for:
+Constraint satisfaction, spatial/ordering problems,
+discrete choices. -Features: Boolean variables, constraints, position/ordering relationships. -Typical
+problems: Arrangement puzzles, scheduling, spatial
+reasoning. -Example patterns: “X is to the left of
+Y ”, ”X is between Y and Z”.
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+Analyze the problem structure carefully and select the
+symbolic language that best matches the problem and write it the final answer as "Chosen symbolic languange : YOUR_SELECTION".
+"""
+
 ONE_SHOT_CLASSIFICATION_PROMPT = """SYSTEM:
 You are an expert logician. Your task is to classify the provided logical reasoning problem into one of four solver types:
 - LP (Logic Programming)
