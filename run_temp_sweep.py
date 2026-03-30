@@ -15,6 +15,7 @@ from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT,
     ADAPTIVE_SELECTION_PROMPT_V2,
+    ADAPTIVE_SELECTION_PROMPT_V2_1,
     ADAPTIVE_SELECTION_PROMPT_V3,
     FEW_SHOT_CLASSIFICATION_PROMPT,
 )
@@ -44,6 +45,12 @@ STRATEGIES = {
     "adaptive_v2": {
         "name": "Adaptive Selection V2",
         "template": ADAPTIVE_SELECTION_PROMPT_V2,
+        "parser": "adaptive_v2",
+        "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+    },
+    "adaptive_v2_1": {
+        "name": "Adaptive Selection V2.1",
+        "template": ADAPTIVE_SELECTION_PROMPT_V2_1,
         "parser": "adaptive_v2",
         "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
     },

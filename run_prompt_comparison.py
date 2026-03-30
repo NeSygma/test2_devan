@@ -24,9 +24,13 @@ from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 from solver_select_pipeline.prompts import (
     PAPER_DECOMPOSITION_PROMPT,
     PAPER_DECOMPOSITION_PROMPT_V2,
+    PAPER_DECOMPOSITION_PROMPT_V3,
     ADAPTIVE_SELECTION_PROMPT,
     ADAPTIVE_SELECTION_PROMPT_V2,
+    ADAPTIVE_SELECTION_PROMPT_V2_1,
     ADAPTIVE_SELECTION_PROMPT_V3,
+    ADAPTIVE_SELECTION_PROMPT_V3_1,
+    ONE_SHOT_CLASSIFICATION_PROMPT,
     FEW_SHOT_CLASSIFICATION_PROMPT,
 )
 
@@ -43,6 +47,10 @@ DECOMPOSITION_V2_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP/SAT/SMT": "CSP"}
 ADAPTIVE_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
 # FEW_SHOT_CLASSIFICATION outputs LP/FOL/CSP → direct map
 FEW_SHOT_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP"}
+# ONE_SHOT_CLASSIFICATION outputs LP/FOL/CSP/SAT → map SAT to CSP
+ONE_SHOT_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
+# PAPER_DECOMPOSITION_V3 outputs LP, FOL, SAT → map SAT to CSP
+DECOMPOSITION_V3_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
 
 
 def map_label(label: str, label_map: dict = None) -> str:
@@ -117,11 +125,11 @@ def _parse_adaptive_v3_response(response: str) -> str:
 
 
 def _parse_few_shot_response(response: str) -> str:
-    """Extract solver label from FEW_SHOT_CLASSIFICATION_PROMPT response (LP/FOL/CSP)."""
+    """Extract solver label from classification prompt response (LP/FOL/CSP/SAT)."""
     if not response:
         return "UNKNOWN"
     clean = response.strip().upper()
-    for solver in ["FOL", "CSP", "LP"]:
+    for solver in ["FOL", "CSP", "LP", "SAT"]:
         if solver in clean:
             return solver
     return "UNKNOWN"
@@ -199,7 +207,7 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
             raw_pred = _parse_adaptive_v2_response(response)
         elif parser == "adaptive_v3":
             raw_pred = _parse_adaptive_v3_response(response)
-        elif parser == "few_shot":
+        elif parser in ("few_shot", "one_shot"):
             raw_pred = _parse_few_shot_response(response)
         else:
             raw_pred = _parse_decomposition_response(response)
@@ -251,26 +259,34 @@ def generate_plots(summary: dict, output_dir: str = "media"):
     # Short display labels
     short_names = []
     for n in names:
-        if "ADAPTIVE" in n.upper() and "V3" in n.upper():
+        if "ADAPTIVE" in n.upper() and "V3_1" in n.upper():
+            short_names.append("Adaptive\nSelection V3.1")
+        elif "ADAPTIVE" in n.upper() and "V3" in n.upper():
             short_names.append("Adaptive\nSelection V3")
+        elif "ADAPTIVE" in n.upper() and "V2_1" in n.upper():
+            short_names.append("Adaptive\nSelection V2.1")
         elif "ADAPTIVE" in n.upper() and "V2" in n.upper():
             short_names.append("Adaptive\nSelection V2")
         elif "ADAPTIVE" in n.upper():
             short_names.append("Adaptive\nSelection")
+        elif "V3" in n.upper():
+            short_names.append("Paper\nDecomp\nV3")
         elif "V2" in n.upper():
             short_names.append("Paper\nDecomp\nV2")
         elif "DECOMPOSITION" in n.upper():
             short_names.append("Paper\nDecomposition")
         elif "FEW_SHOT" in n.upper():
             short_names.append("Few-Shot\nClass")
+        elif "ONE_SHOT" in n.upper():
+            short_names.append("One-Shot\nClass")
         else:
             short_names.append(n)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(18, 6))
 
     # ── 1. Accuracy Bar Chart ────────────────────────────────────────────────
     colors_acc = ["#4C72B0", "#55A868"]
-    bars = axes[0].bar(short_names, accuracies, color=colors_acc[:len(names)],
+    bars = axes[0].bar(short_names, accuracies, color="#4C72B0",
                        edgecolor="white", linewidth=0.8, width=0.45)
     axes[0].set_ylim(0, 1.15)
     axes[0].set_ylabel("Accuracy", fontsize=12)
@@ -336,10 +352,14 @@ def main():
     # Each tuple: (name, template, parser_type, label_map, temperature)
     strategies = [
         ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
-        ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0.3),
-        ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      1),
+        ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0),
+        ("PAPER_DECOMPOSITION_PROMPT_V3", PAPER_DECOMPOSITION_PROMPT_V3, "decomposition", DECOMPOSITION_V3_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      0),
         ("ADAPTIVE_SELECTION_PROMPT_V2", ADAPTIVE_SELECTION_PROMPT_V2, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_V2_1", ADAPTIVE_SELECTION_PROMPT_V2_1, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_V3", ADAPTIVE_SELECTION_PROMPT_V3, "adaptive_v3", ADAPTIVE_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_V3_1", ADAPTIVE_SELECTION_PROMPT_V3_1, "adaptive_v3", ADAPTIVE_LABEL_MAP, 0),
+        ("ONE_SHOT_CLASSIFICATION_PROMPT", ONE_SHOT_CLASSIFICATION_PROMPT, "one_shot", ONE_SHOT_LABEL_MAP, 0),
         ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
     ]
 

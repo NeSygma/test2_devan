@@ -107,6 +107,62 @@ Problem Statement:
 {problem}
 """
 
+PAPER_DECOMPOSITION_PROMPT_V3 = """SYSTEM:
+You are a logician and reasoning systems expert specializing in symbolic reasoning frameworks. Given a text that may contain one or multiple logical reasoning problems, identify each problem, determine its type, and decompose the text accordingly. Return the result strictly as a JSON object with "result" containing an array of problem objects.
+Specifically, your task is to:
+1. First, analyze the input text to identify how many distinct reasoning problems it contains.
+2. For each identified problem, determine its type from the following categories:
+- Logic Programming (LP): Problems where conclusions are deduced step by step from known facts and rules, often operating under a closed-world assumption and capable of non-monotonic default reasoning or computing transitive closures. It is highly effective for explicit deductive reasoning, expert systems, and combinatorial search using generate-define-test methodologies.
+- First-order Logic (FOL): Problems requiring expressive monotonic reasoning under an open-world assumption, involving complex entity relationships, universal ("for all"), and existential ("there exists") quantifiers. Pure FOL problems can be semi-decidable, making them distinct from bounded logic programming tasks.
+- SAT: A unified category for problems that involve combinatorial optimization, strict boolean satisfiability, or continuous-variable algebra. These problems require determining if a configuration satisfies a set of constraints, finding optimal value assignments over finite discrete domains, or solving constraints across infinite and continuous domains like real numbers modulo background theories.
+To guide your classification:
+- Consider whether the problem leans towards reasoning from facts, defaults, and relationships (LP or FOL) or towards optimizing assignments and checking the satisfiability of arithmetic/boolean constraints (SAT).
+- in SAT, the problems can be either multiple-choice questions or free-form, open-ended constraint puzzles.
+- use SAT if the problem involves ordering, sequencing, or allocating items based on available constraints.
+- Between LP and FOL, use LP if the reasoning relies on explicit chaining, rule-based deduction, or non-monotonic exceptions; 
+- use FOL if it requires complex quantified statements or open-world assumptions.
+- FOL problems may involve implicit quantifiers disguised as natural language generalizations (e.g., categorical statements like "A is a B").
+3. For each problem, create a JSON object with the following structure:
+- "problem_id" (str): A unique identifier following the pattern "ques_1", "ques_2", etc., based on the order of appearance.
+- "problem_type" (str): The type classification. The value must be one of LP, FOL, or SAT
+- Based on the problem type, include the appropriate fields:
+- If problem_type == "LP" or "FOL":
+- "premise" (str): the given premise.
+- "hypothesis" (str): the hypothesis to be evaluated for truth.
+- "options" (list): the provided answer options if present.
+- If problem_type == "SAT":
+- "context" (str): background description, constraints, or trial parameters.
+- "question" (str): the specific question being asked or sample description to verify.
+- "options" (list): the provided answer options if present.
+If options are present, preserve any existing option labels (e.g., "A)", "B)"). If the present options have no labels, assign labels 'A)', 'B)', 'C)',... automatically.
+4. Extract or analyze the overall goal of the input text:
+- FIRST, try to extract any explicitly stated overall goal or instruction from the text (e.g., "Answer the above questions one by one", "Solve all problems to find the final answer", etc.)
+- If no explicit goal is found, analyze the relationship between problems and write a brief description:
+- Multiple independent problems: "Solve multiple independent reasoning problems"
+- Subproblems contributing to main problem: "Solve subproblems to address the main complex problem"
+- Sequential dependent problems: "Solve problems in sequence with dependencies"
+- Single problem: "Solve the reasoning problem"
+5. As a limit to the output :
+- ONLY provide the problem type output as LP, FOL, or SAT. DO NOT produce any other output such as UNKNOWN.
+Return a JSON object with two keys:
+- "result": an array containing all identified problems
+- "overall_goal": the extracted goal text or a brief analysis-based description
+Example output format:
+{{
+"result": [
+"problem_id": "ques_1",
+"problem_type": "SAT",
+"context": "...",
+"question": "...",
+"options": ["A) ...", "B) ..."]
+],
+"overall_goal": "Answer the above questions one by one"
+}}
+USER:
+Problem Statement:
+{problem}
+"""
+
 ADAPTIVE_SELECTION_PROMPT = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
 the most appropriate symbolic language for solving it.
 You have three symbolic languages to choose from:
@@ -241,6 +297,36 @@ Question: ${question}
 Options: ${options}
 Analyze the problem structure carefully and select the
 symbolic language that best matches the problem and write it the final answer as "Chosen symbolic languange : YOUR_SELECTION".
+"""
+
+ADAPTIVE_SELECTION_PROMPT_V3_1 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
+the most appropriate symbolic language for solving it.
+You have three symbolic languages to choose from:
+1. FOL (First-Order Logic):
+-Best for: Complex quantifiers, mathematical relationships, formal proofs. -Features: Universal
+(∀) and existential (∃) quantifiers, logical operators (¬, ∨,∧, →), predicates, functions, variables. -
+Typical problems: Mathematical theorems, complex logical relationships, nested quantifications, categorical syllogisms. -Example patterns: “For all X,
+there exists Y such that...”, “If and only if...”, “All X
+are Y ”.
+2. LP (Logic Programming):
+-Best for: Deductive reasoning, propositions, relationship between sentences. -Features: Fact as a
+simple statement with predicates and arguments.
+Rules written in the form of clauses. Query as another fact required to be proved based on known facts
+and rules. -Typical problems: Deductive reasoning,
+propositional logical reasoning. -Example patterns:
+“If something is X then it is Y ”.
+3. SAT ( Boolean Satisfiability Problem): -Best for:
+Constraint satisfaction, spatial/ordering problems,
+discrete choices. -Features: Boolean variables, constraints, position/ordering relationships. -Typical
+problems: Arrangement puzzles, scheduling, spatial
+reasoning. -Example patterns: “X is to the left of
+Y ”, ”X is between Y and Z”.
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+Analyze the problem structure carefully and select the
+symbolic language that best matches the problem and write down the reasoning along with the final answer as "Chosen symbolic languange : YOUR_SELECTION".
 """
 
 ONE_SHOT_CLASSIFICATION_PROMPT = """SYSTEM:

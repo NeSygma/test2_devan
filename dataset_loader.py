@@ -103,16 +103,41 @@ class LogicDatasetLoader:
         return records
 
     @staticmethod
+    def load_aspbench(level: str = "easy", limit: int = 5) -> List[Dict[str, Any]]:
+        """LP: ASPBench dataset (easy or hard)."""
+        import os
+        import glob
+        records = []
+        base_dir = os.path.join(os.path.dirname(__file__), "ASPBench_datasets", level)
+        try:
+            # Find all .md files in the directory
+            md_files = sorted(glob.glob(os.path.join(base_dir, "*.md")))
+            for idx, filepath in enumerate(md_files):
+                if limit and idx >= limit: break
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    text = f.read()
+                records.append({
+                    "id": f"aspbench_{level}_{idx}",
+                    "text": text,
+                    "gold_solver": "LP"
+                })
+        except Exception as e:
+            print(f"Error loading ASPBench {level}: {e}")
+        return records
+
+    @staticmethod
     def load_mixed_datasets(limit_per_dataset: int = 5) -> List[Dict[str, Any]]:
         """
-        Loads and interleaves ProofWriter, FOLIO, LogicalDeduction, and AR-LSAT 
-        for evaluation of solver classification.
+        Loads and interleaves ProofWriter, FOLIO, LogicalDeduction, AR-LSAT, 
+        and ASPBench for evaluation of solver classification.
         """
         all_records = []
         all_records.extend(LogicDatasetLoader.load_proofwriter(limit_per_dataset))
         all_records.extend(LogicDatasetLoader.load_folio_huggingface(limit_per_dataset))
         all_records.extend(LogicDatasetLoader.load_logical_deduction(limit_per_dataset))
         all_records.extend(LogicDatasetLoader.load_ar_lsat(limit_per_dataset))
+        all_records.extend(LogicDatasetLoader.load_aspbench("easy", limit_per_dataset))
+        all_records.extend(LogicDatasetLoader.load_aspbench("hard", limit_per_dataset))
         
         # Shuffle to test the pipeline's robustness
         random.shuffle(all_records)
