@@ -58,7 +58,7 @@ STRATEGIES = {
         "name": "Adaptive Selection V3",
         "template": ADAPTIVE_SELECTION_PROMPT_V3,
         "parser": "adaptive_v3",
-        "label_map": {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+        "label_map": {"CLINGO": "LP", "VAMPIRE": "FOL", "Z3": "CSP"}
     },
     "few_shot": {
         "name": "Few-shot Classification",
@@ -113,18 +113,27 @@ def _parse_adaptive_v2_response(response: str) -> str:
     return "UNKNOWN"
 
 def _parse_adaptive_v3_response(response: str) -> str:
+    """Extract solver label from ADAPTIVE_SELECTION_PROMPT_V3 JSON response (VAMPIRE/CLINGO/Z3)."""
     if not response:
         return "UNKNOWN"
-    clean = response.strip().upper()
-    prefix = "CHOSEN SYMBOLIC LANGUANGE"
-    if prefix in clean:
-        after_prefix = clean.split(prefix)[-1]
-        for solver in ["FOL", "LP", "SAT"]:
-            if solver in after_prefix:
-                return solver
-    # Fallback broadly just in case the model dropped the prefix
-    for solver in ["FOL", "LP", "SAT"]:
-        if solver in clean:
+    # Try JSON extraction first
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        solver = data.get("solver_type", "").strip().upper()
+        if solver in ("VAMPIRE", "CLINGO", "Z3"):
+            return solver
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    # Fallback: scan for solver keywords in raw text
+    upper = response.strip().upper()
+    for solver in ["VAMPIRE", "CLINGO", "Z3"]:
+        if solver in upper:
             return solver
     return "UNKNOWN"
 

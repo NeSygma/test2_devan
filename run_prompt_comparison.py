@@ -29,9 +29,9 @@ from solver_select_pipeline.prompts import (
     ADAPTIVE_SELECTION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT_V2_1,
     ADAPTIVE_SELECTION_PROMPT_V3,
-    ADAPTIVE_SELECTION_PROMPT_V3_1,
     ONE_SHOT_CLASSIFICATION_PROMPT,
     FEW_SHOT_CLASSIFICATION_PROMPT,
+    DECOMPOSITION_CUSTOM_PROMPT,
 )
 
 # ── Label Mapping ──────────────────────────────────────────────────────────────
@@ -51,6 +51,8 @@ FEW_SHOT_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP"}
 ONE_SHOT_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "CSP": "CSP", "SAT": "CSP"}
 # PAPER_DECOMPOSITION_V3 outputs LP, FOL, SAT → map SAT to CSP
 DECOMPOSITION_V3_LABEL_MAP = {"LP": "LP", "FOL": "FOL", "SAT": "CSP"}
+# DECOMPOSITION_CUSTOM outputs CLINGO/VAMPIRE/Z3 → map to LP/FOL/CSP
+DECOMPOSITION_CUSTOM_LABEL_MAP = {"CLINGO": "LP", "VAMPIRE": "FOL", "Z3": "CSP"}
 
 
 def map_label(label: str, label_map: dict = None) -> str:
@@ -108,18 +110,27 @@ def _parse_adaptive_v2_response(response: str) -> str:
 
 
 def _parse_adaptive_v3_response(response: str) -> str:
+    """Extract solver label from ADAPTIVE_SELECTION_PROMPT_V3 JSON response (VAMPIRE/CLINGO/Z3)."""
     if not response:
         return "UNKNOWN"
-    clean = response.strip().upper()
-    prefix = "CHOSEN SYMBOLIC LANGUANGE"
-    if prefix in clean:
-        after_prefix = clean.split(prefix)[-1]
-        for solver in ["FOL", "LP", "SAT"]:
-            if solver in after_prefix:
-                return solver
-    # Fallback broadly just in case the model dropped the prefix
-    for solver in ["FOL", "LP", "SAT"]:
-        if solver in clean:
+    # Try JSON extraction first
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        solver = data.get("solver_type", "").strip().upper()
+        if solver in ("VAMPIRE", "CLINGO", "Z3"):
+            return solver
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    # Fallback: scan for solver keywords in raw text
+    upper = response.strip().upper()
+    for solver in ["VAMPIRE", "CLINGO", "Z3"]:
+        if solver in upper:
             return solver
     return "UNKNOWN"
 
@@ -273,6 +284,8 @@ def generate_plots(summary: dict, output_dir: str = "media"):
             short_names.append("Paper\nDecomp\nV3")
         elif "V2" in n.upper():
             short_names.append("Paper\nDecomp\nV2")
+        elif "CUSTOM" in n.upper():
+            short_names.append("Decomp\nCustom")
         elif "DECOMPOSITION" in n.upper():
             short_names.append("Paper\nDecomposition")
         elif "FEW_SHOT" in n.upper():
@@ -357,10 +370,10 @@ def main():
         ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      0),
         ("ADAPTIVE_SELECTION_PROMPT_V2", ADAPTIVE_SELECTION_PROMPT_V2, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_V2_1", ADAPTIVE_SELECTION_PROMPT_V2_1, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
-        ("ADAPTIVE_SELECTION_PROMPT_V3", ADAPTIVE_SELECTION_PROMPT_V3, "adaptive_v3", ADAPTIVE_LABEL_MAP, 0),
-        ("ADAPTIVE_SELECTION_PROMPT_V3_1", ADAPTIVE_SELECTION_PROMPT_V3_1, "adaptive_v3", ADAPTIVE_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_V3", ADAPTIVE_SELECTION_PROMPT_V3, "adaptive_v3", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
         ("ONE_SHOT_CLASSIFICATION_PROMPT", ONE_SHOT_CLASSIFICATION_PROMPT, "one_shot", ONE_SHOT_LABEL_MAP, 0),
         ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
+        ("DECOMPOSITION_CUSTOM_PROMPT", DECOMPOSITION_CUSTOM_PROMPT, "decomposition", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
     ]
 
     # Use a shared LLM client (resets usage per strategy)

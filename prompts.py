@@ -269,64 +269,105 @@ Example output format:
 }
 """
 
-ADAPTIVE_SELECTION_PROMPT_V3 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
-the most appropriate symbolic language for solving it.
-You have three symbolic languages to choose from:
-1. FOL (First-Order Logic):
--Best for: Complex quantifiers, mathematical relationships, formal proofs. -Features: Universal
-(∀) and existential (∃) quantifiers, logical operators (¬, ∨,∧, →), predicates, functions, variables. -
-Typical problems: Mathematical theorems, complex logical relationships, nested quantifications, categorical syllogisms. -Example patterns: “For all X,
-there exists Y such that...”, “If and only if...”, “All X
-are Y ”.
-2. LP (Logic Programming):
--Best for: Deductive reasoning, propositions, relationship between sentences. -Features: Fact as a
-simple statement with predicates and arguments.
-Rules written in the form of clauses. Query as another fact required to be proved based on known facts
-and rules. -Typical problems: Deductive reasoning,
-propositional logical reasoning. -Example patterns:
-“If something is X then it is Y ”.
-3. SAT ( Boolean Satisfiability Problem): -Best for:
-Constraint satisfaction, spatial/ordering problems,
-discrete choices. -Features: Boolean variables, constraints, position/ordering relationships. -Typical
-problems: Arrangement puzzles, scheduling, spatial
-reasoning. -Example patterns: “X is to the left of
-Y ”, ”X is between Y and Z”.
+ADAPTIVE_SELECTION_PROMPT_V3 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select the most appropriate solver for solving it.
+You have three solvers to choose from:
+
+1. VAMPIRE (Automated Theorem Prover — First-Order Logic):
+- Best for: Problems requiring expressive monotonic reasoning under an open-world assumption, involving complex entity relationships, universal ("for all") and existential ("there exists") quantifiers, and formal theorem proving over rich relational structures.
+- Features: Universal (∀) and existential (∃) quantifiers, logical connectives (¬, ∧, ∨, →, ↔), predicates, functions, constants, equality, and negation-based refutation proofs using TPTP format.
+- Open-world assumption: anything not explicitly asserted as an axiom or derivable from axioms is unknown, not false.
+- Typical problems: Mathematical theorems, categorical syllogisms, complex logical entailments, nested quantifications, claim checking via proof/refutation.
+- Example patterns: "For all X, there exists Y such that...", "If and only if...", "All X are Y", "No A are B", "Is it true that...?", proving/disproving logical claims.
+
+2. CLINGO (Answer Set Programming — Logic Programming):
+- Best for: Problems where conclusions are deduced step by step from known facts and rules, operating under a closed-world assumption, capable of non-monotonic default reasoning, planning, and combinatorial search using generate-define-test methodology.
+- Features: Facts as simple statements, rules written as clauses with heads and bodies, integrity constraints that eliminate invalid worlds, choice rules for generating candidate solutions, optimization via #minimize/#maximize, and aggregates (#count, #sum).
+- Closed-world assumption: anything not explicitly stated as a fact or derivable from a rule is considered false.
+- Typical problems: Deductive reasoning, rule-based inference, expert systems, planning with temporal logic and frame axioms, state exclusivity, graph coloring, scheduling with explicit action modeling.
+- Example patterns: "If something is X then it is Y", "X is a bird and does not have an exception, so X can fly", "Given these rules, what can be concluded?", step-by-step rule chaining, default reasoning with exceptions.
+
+3. Z3 (SMT Solver — Satisfiability Modulo Theories):
+- Best for: Problems that involve constraints, satisfiability, consistency checking, arithmetic/logical conditions, assignment under constraints, scheduling/allocation constraints, ordering/sequencing, or SAT-like analytical reasoning. Handles both CSP-style and SAT-style problems.
+- Features: Boolean (Bool), integer (Int), and real (Real) symbolic variables, Z3 logical operators (And, Or, Not, Implies), arithmetic constraints, arrays, optimization (minimize/maximize), model finding, and theorem proving via negation.
+- Typical problems: Constraint satisfaction puzzles, arrangement/allocation problems, scheduling, spatial reasoning, arithmetic optimization, verifying whether a configuration satisfies logical requirements, checking consistency of assignments.
+- Example patterns: "X is to the left of Y", "X is between Y and Z", "Find values such that all constraints are satisfied", "Which arrangement is valid?", ordering under constraints, resource allocation.
+
 Given the following logic problem:
 Context: ${context}
 Question: ${question}
 Options: ${options}
-Analyze the problem structure carefully and select the
-symbolic language that best matches the problem and write it the final answer as "Chosen symbolic languange : YOUR_SELECTION".
+Analyze the problem structure carefully and select the solver that best matches the problem.
+Provide your final answer after the analysis as a JSON object with the following format.
+{
+    "solver_type": "YOUR_SELECTION"
+}
+Example output format:
+{
+    "solver_type": "CLINGO"
+}
 """
 
-ADAPTIVE_SELECTION_PROMPT_V3_1 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select
-the most appropriate symbolic language for solving it.
-You have three symbolic languages to choose from:
-1. FOL (First-Order Logic):
--Best for: Complex quantifiers, mathematical relationships, formal proofs. -Features: Universal
-(∀) and existential (∃) quantifiers, logical operators (¬, ∨,∧, →), predicates, functions, variables. -
-Typical problems: Mathematical theorems, complex logical relationships, nested quantifications, categorical syllogisms. -Example patterns: “For all X,
-there exists Y such that...”, “If and only if...”, “All X
-are Y ”.
-2. LP (Logic Programming):
--Best for: Deductive reasoning, propositions, relationship between sentences. -Features: Fact as a
-simple statement with predicates and arguments.
-Rules written in the form of clauses. Query as another fact required to be proved based on known facts
-and rules. -Typical problems: Deductive reasoning,
-propositional logical reasoning. -Example patterns:
-“If something is X then it is Y ”.
-3. SAT ( Boolean Satisfiability Problem): -Best for:
-Constraint satisfaction, spatial/ordering problems,
-discrete choices. -Features: Boolean variables, constraints, position/ordering relationships. -Typical
-problems: Arrangement puzzles, scheduling, spatial
-reasoning. -Example patterns: “X is to the left of
-Y ”, ”X is between Y and Z”.
-Given the following logic problem:
-Context: ${context}
-Question: ${question}
-Options: ${options}
-Analyze the problem structure carefully and select the
-symbolic language that best matches the problem and write down the reasoning along with the final answer as "Chosen symbolic languange : YOUR_SELECTION".
+DECOMPOSITION_CUSTOM_PROMPT = """ You are a logician and reasoning systems expert specializing in symbolic reasoning frameworks. Given a text that may contain one or multiple logical reasoning problems, identify each problem, determine its type, and decompose the text accordingly. Return the result strictly as a JSON object with "result" containing an array of problem objects.
+Specifically, your task is to:
+1. First, analyze the input text to identify how many distinct reasoning problems it contains.
+2. For each identified problem, determine its type from the following categories:
+- Logic Programming (LP): Problems to be solved with Answer Set Programming (ASP) using clingo. This includes rule-based inference, default/non-monotonic reasoning, planning, and related ASP-style tasks.
+- First-order Logic (FOL): Problems to be solved with the Vampire automated theorem prover. These typically involve quantified statements (e.g., "for all", "there exists"), predicates, and theorem proving over rich relational structures.
+- Satisfiability Modulo Theories (SMT): Problems that involve constraints, satisfiability, consistency checking, arithmetic/logical conditions, assignment under constraints, scheduling/allocation constraints, or SAT-like analytical reasoning. Treat both CSP-style and SAT-style problems as SMT problems to be solved using the Z3 solver.
+Output mapping requirement:
+- LP -> CLINGO
+- FOL -> VAMPIRE
+- SMT -> Z3
+To guide your classification:
+- Consider whether the problem leans more toward ASP-style rule reasoning/planning (LP), first-order theorem proving (FOL), or constraint/satisfiability solving (SMT).
+- Use LP when the task is naturally represented as logic rules, answer sets, or planning transitions/actions.
+- Use FOL when the task is best expressed with quantified first-order formulas and theorem-proving style entailment/refutation.
+- Use SMT when the task centers on checking satisfiability/validity under constraints, including tasks that previously look like CSP or SAT.
+3. For each problem, create a JSON object with the following structure:
+- "problem_id" (str): A unique identifier following the pattern "ques_1", "ques_2", etc., based on the order of appearance.
+- "problem_type" (str): The solver label. The value must be exactly one of CLINGO, VAMPIRE, Z3.
+- Based on the problem type, include the appropriate fields:
+- If problem_type == "CLINGO" or "VAMPIRE":
+- "premise" (str): the given premise.
+- "hypothesis" (str): the hypothesis to be evaluated for truth.
+- "options" (list): the provided answer options.
+- If problem_type == "Z3":
+- "context" (str): background description.
+- "question" (str): the specific question being asked.
+- "options" (list): the provided answer options.
+Preserve any existing option labels (e.g., "A)", "B)"). If options have no labels, assign labels 'A)', 'B)', 'C)', ... automatically.
+4. Extract or analyze the overall goal of the input text:
+- FIRST, try to extract any explicitly stated overall goal or instruction from the text (e.g., "Answer the above questions one by one", "Solve all problems to find the final answer", etc.)
+- If no explicit goal is found, analyze the relationship between problems and write a brief description:
+- Multiple independent problems: "Solve multiple independent reasoning problems"
+- Subproblems contributing to main problem: "Solve subproblems to address the main complex problem"
+- Sequential dependent problems: "Solve problems in sequence with dependencies"
+- Single problem: "Solve the reasoning problem"
+Return a JSON object with two keys:
+- "result": an array containing all identified problems
+- "overall_goal": the extracted goal text or a brief analysis-based description
+
+Strict value/output constraints:
+- In every problem object, "problem_type" must be exactly CLINGO, VAMPIRE, or Z3 (uppercase).
+- Do not use LP, FOL, SMT, CSP, or SAT in the output JSON values.
+- Return valid JSON only, with no extra commentary outside the JSON.
+
+Example output format:
+{{
+  "result": [
+    {{
+      "problem_id": "ques_1",
+      "problem_type": "Z3",
+      "context": "...",
+      "question": "...",
+      "options": ["A) ...", "B) ..."]
+    }}
+  ],
+  "overall_goal": "Answer the above questions one by one"
+}}
+USER:
+Problem Statement:
+{problem}
 """
 
 ONE_SHOT_CLASSIFICATION_PROMPT = """SYSTEM:

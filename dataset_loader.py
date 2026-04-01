@@ -116,6 +116,9 @@ class LogicDatasetLoader:
                 if limit and idx >= limit: break
                 with open(filepath, 'r', encoding='utf-8') as f:
                     text = f.read()
+                # Strip "## Output Format" section — not needed for solver classification
+                if "## Output Format" in text:
+                    text = text[:text.index("## Output Format")].rstrip()
                 records.append({
                     "id": f"aspbench_{level}_{idx}",
                     "text": text,
