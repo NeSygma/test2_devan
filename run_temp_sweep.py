@@ -17,6 +17,7 @@ from solver_select_pipeline.prompts import (
     ADAPTIVE_SELECTION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT_V2_1,
     ADAPTIVE_SELECTION_PROMPT_V3,
+    ADAPTIVE_SELECTION_PROMPT_RANK,
     FEW_SHOT_CLASSIFICATION_PROMPT,
 )
 
@@ -65,6 +66,12 @@ STRATEGIES = {
         "template": FEW_SHOT_CLASSIFICATION_PROMPT,
         "parser": "few_shot",
         "label_map": {"LP": "LP", "FOL": "FOL", "CSP": "CSP"}
+    },
+    "adaptive_rank": {
+        "name": "Adaptive Selection Rank",
+        "template": ADAPTIVE_SELECTION_PROMPT_RANK,
+        "parser": "adaptive_rank",
+        "label_map": {"CLINGO": "LP", "VAMPIRE": "FOL", "Z3": "CSP"}
     }
 }
 
@@ -129,6 +136,33 @@ def _parse_adaptive_v3_response(response: str) -> str:
         if solver in ("VAMPIRE", "CLINGO", "Z3"):
             return solver
     except (json.JSONDecodeError, AttributeError):
+        pass
+    # Fallback: scan for solver keywords in raw text
+    upper = response.strip().upper()
+    for solver in ["VAMPIRE", "CLINGO", "Z3"]:
+        if solver in upper:
+            return solver
+    return "UNKNOWN"
+
+def _parse_adaptive_rank_response(response: str) -> str:
+    """Extract the top-ranked solver from ADAPTIVE_SELECTION_PROMPT_RANK JSON response."""
+    if not response:
+        return "UNKNOWN"
+    # Try JSON extraction
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        ranking = data.get("solver_ranking", [])
+        if ranking and len(ranking) > 0:
+            top = ranking[0].strip().upper()
+            if top in ("VAMPIRE", "CLINGO", "Z3"):
+                return top
+    except (json.JSONDecodeError, AttributeError, IndexError):
         pass
     # Fallback: scan for solver keywords in raw text
     upper = response.strip().upper()
@@ -213,6 +247,8 @@ def run_single_temperature(problems, temperature, prompt_key):
                 raw_pred = _parse_adaptive_v2_response(response)
             elif parser_type == "adaptive_v3":
                 raw_pred = _parse_adaptive_v3_response(response)
+            elif parser_type == "adaptive_rank":
+                raw_pred = _parse_adaptive_rank_response(response)
             elif parser_type == "few_shot":
                 raw_pred = _parse_few_shot_response(response)
             else:

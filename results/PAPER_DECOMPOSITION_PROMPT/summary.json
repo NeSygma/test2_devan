@@ -1,0 +1,51 @@
+{
+  "prompt_name": "PAPER_DECOMPOSITION_PROMPT",
+  "llm_model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "timestamp": "2026-04-03T11:40:37.381291",
+  "num_problems": 360,
+  "accuracy": 0.46111111111111114,
+  "total_usage": {
+    "prompt_tokens": 439043,
+    "completion_tokens": 212561,
+    "total_tokens": 651604
+  },
+  "per_benchmark": {
+    "ar_lsat": {
+      "num_problems": 60,
+      "num_correct": 54,
+      "accuracy": 0.9,
+      "total_tokens": 106177
+    },
+    "aspbench_hard": {
+      "num_problems": 60,
+      "num_correct": 0,
+      "accuracy": 0.0,
+      "total_tokens": 145138
+    },
+    "proofwriter": {
+      "num_problems": 60,
+      "num_correct": 32,
+      "accuracy": 0.5333333333333333,
+      "total_tokens": 85113
+    },
+    "aspbench_easy": {
+      "num_problems": 60,
+      "num_correct": 1,
+      "accuracy": 0.016666666666666666,
+      "total_tokens": 115689
+    },
+    "folio": {
+      "num_problems": 60,
+      "num_correct": 23,
+      "accuracy": 0.38333333333333336,
+      "total_tokens": 99290
+    },
+    "logical_deduction": {
+      "num_problems": 60,
+      "num_correct": 56,
+      "accuracy": 0.9333333333333333,
+      "total_tokens": 100197
+    }
+  }
+}

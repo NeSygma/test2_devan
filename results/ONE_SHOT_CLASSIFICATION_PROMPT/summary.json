@@ -1,0 +1,51 @@
+{
+  "prompt_name": "ONE_SHOT_CLASSIFICATION_PROMPT",
+  "llm_model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "timestamp": "2026-04-03T17:04:45.158956",
+  "num_problems": 360,
+  "accuracy": 0.4861111111111111,
+  "total_usage": {
+    "prompt_tokens": 147083,
+    "completion_tokens": 69552,
+    "total_tokens": 216635
+  },
+  "per_benchmark": {
+    "ar_lsat": {
+      "num_problems": 60,
+      "num_correct": 60,
+      "accuracy": 1.0,
+      "total_tokens": 27695
+    },
+    "aspbench_hard": {
+      "num_problems": 60,
+      "num_correct": 2,
+      "accuracy": 0.03333333333333333,
+      "total_tokens": 58499
+    },
+    "proofwriter": {
+      "num_problems": 60,
+      "num_correct": 0,
+      "accuracy": 0.0,
+      "total_tokens": 26115
+    },
+    "aspbench_easy": {
+      "num_problems": 60,
+      "num_correct": 1,
+      "accuracy": 0.016666666666666666,
+      "total_tokens": 38611
+    },
+    "folio": {
+      "num_problems": 60,
+      "num_correct": 52,
+      "accuracy": 0.8666666666666667,
+      "total_tokens": 35857
+    },
+    "logical_deduction": {
+      "num_problems": 60,
+      "num_correct": 60,
+      "accuracy": 1.0,
+      "total_tokens": 29858
+    }
+  }
+}

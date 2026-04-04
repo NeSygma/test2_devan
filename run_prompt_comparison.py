@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import argparse
 import json
 import time
+import datetime
 from string import Template
 from tqdm import tqdm
 import pandas as pd
@@ -29,6 +30,7 @@ from solver_select_pipeline.prompts import (
     ADAPTIVE_SELECTION_PROMPT_V2,
     ADAPTIVE_SELECTION_PROMPT_V2_1,
     ADAPTIVE_SELECTION_PROMPT_V3,
+    ADAPTIVE_SELECTION_PROMPT_RANK,
     ONE_SHOT_CLASSIFICATION_PROMPT,
     FEW_SHOT_CLASSIFICATION_PROMPT,
     DECOMPOSITION_CUSTOM_PROMPT,
@@ -135,6 +137,34 @@ def _parse_adaptive_v3_response(response: str) -> str:
     return "UNKNOWN"
 
 
+def _parse_adaptive_rank_response(response: str) -> str:
+    """Extract the top-ranked solver from ADAPTIVE_SELECTION_PROMPT_RANK JSON response."""
+    if not response:
+        return "UNKNOWN"
+    # Try JSON extraction
+    try:
+        if "```json" in response:
+            clean = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            clean = response.split("```")[1].split("```")[0]
+        else:
+            clean = response
+        data = json.loads(clean.strip())
+        ranking = data.get("solver_ranking", [])
+        if ranking and len(ranking) > 0:
+            top = ranking[0].strip().upper()
+            if top in ("VAMPIRE", "CLINGO", "Z3"):
+                return top
+    except (json.JSONDecodeError, AttributeError, IndexError):
+        pass
+    # Fallback: scan for solver keywords in raw text
+    upper = response.strip().upper()
+    for solver in ["VAMPIRE", "CLINGO", "Z3"]:
+        if solver in upper:
+            return solver
+    return "UNKNOWN"
+
+
 def _parse_few_shot_response(response: str) -> str:
     """Extract solver label from classification prompt response (LP/FOL/CSP/SAT)."""
     if not response:
@@ -157,6 +187,23 @@ def _format_adaptive_prompt(prompt_template: str, problem_text: str) -> str:
 
 # Default delay between API calls (seconds) to stay under rate limits
 DEFAULT_REQUEST_DELAY = 5.0
+
+
+def _infer_benchmark(problem_id: str) -> str:
+    """Infer benchmark name from a problem ID prefix."""
+    if problem_id.startswith("proofwriter"):
+        return "proofwriter"
+    if problem_id.startswith("folio"):
+        return "folio"
+    if problem_id.startswith("logdeduc"):
+        return "logical_deduction"
+    if problem_id.startswith("arlsat"):
+        return "ar_lsat"
+    if problem_id.startswith("aspbench_easy"):
+        return "aspbench_easy"
+    if problem_id.startswith("aspbench_hard"):
+        return "aspbench_hard"
+    return "unknown"
 
 
 def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
@@ -218,6 +265,8 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
             raw_pred = _parse_adaptive_v2_response(response)
         elif parser == "adaptive_v3":
             raw_pred = _parse_adaptive_v3_response(response)
+        elif parser == "adaptive_rank":
+            raw_pred = _parse_adaptive_rank_response(response)
         elif parser in ("few_shot", "one_shot"):
             raw_pred = _parse_few_shot_response(response)
         else:
@@ -232,6 +281,7 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
 
         results.append({
             "id": problem["id"],
+            "benchmark": _infer_benchmark(problem["id"]),
             "gold": gold,
             "raw_prediction": raw_pred,
             "prediction": predicted,
@@ -335,6 +385,64 @@ def generate_plots(summary: dict, output_dir: str = "media"):
     print(f"\nPlot saved to {plot_path}")
 
 
+# ── Result Saving ──────────────────────────────────────────────────────────────
+
+def save_structured_results(prompt_name: str, results: list, total_usage: dict,
+                            accuracy: float, llm_model: str, temperature: float,
+                            output_root: str = "results"):
+    """
+    Save results in a structured folder layout:
+        results/{prompt_name}/{benchmark_name}/results.jsonl
+        results/{prompt_name}/summary.json
+    """
+    prompt_dir = os.path.join(output_root, prompt_name)
+    os.makedirs(prompt_dir, exist_ok=True)
+
+    # Group results by benchmark
+    benchmarks: dict[str, list] = {}
+    for row in results:
+        bench = row.get("benchmark", "unknown")
+        benchmarks.setdefault(bench, []).append(row)
+
+    # Write per-benchmark JSONL files
+    per_benchmark_stats = {}
+    for bench_name, rows in benchmarks.items():
+        bench_dir = os.path.join(prompt_dir, bench_name)
+        os.makedirs(bench_dir, exist_ok=True)
+        jsonl_path = os.path.join(bench_dir, "results.jsonl")
+        with open(jsonl_path, "w", encoding="utf-8") as f:
+            for row in rows:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+        # Compute per-benchmark stats
+        correct = sum(1 for r in rows if r["match"])
+        total = len(rows)
+        bench_tokens = sum(r["total_tokens"] for r in rows)
+        per_benchmark_stats[bench_name] = {
+            "num_problems": total,
+            "num_correct": correct,
+            "accuracy": correct / total if total > 0 else 0.0,
+            "total_tokens": bench_tokens,
+        }
+
+    # Write summary JSON
+    summary_data = {
+        "prompt_name": prompt_name,
+        "llm_model": llm_model,
+        "temperature": temperature,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "num_problems": len(results),
+        "accuracy": accuracy,
+        "total_usage": total_usage,
+        "per_benchmark": per_benchmark_stats,
+    }
+    summary_path = os.path.join(prompt_dir, "summary.json")
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(summary_data, f, indent=2, ensure_ascii=False)
+
+    print(f"  Results saved to {prompt_dir}/")
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -344,8 +452,8 @@ def main():
     )
     parser.add_argument("--limit", type=int, default=5,
                         help="Number of problems per dataset (default: 5)")
-    parser.add_argument("--out", type=str, default="prompt_comparison_results.csv",
-                        help="Output CSV filename")
+    parser.add_argument("--out", type=str, default="results",
+                        help="Output root directory (default: results)")
     args = parser.parse_args()
 
     # Load mixed dataset
@@ -374,10 +482,12 @@ def main():
         ("ONE_SHOT_CLASSIFICATION_PROMPT", ONE_SHOT_CLASSIFICATION_PROMPT, "one_shot", ONE_SHOT_LABEL_MAP, 0),
         ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
         ("DECOMPOSITION_CUSTOM_PROMPT", DECOMPOSITION_CUSTOM_PROMPT, "decomposition", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_RANK", ADAPTIVE_SELECTION_PROMPT_RANK, "adaptive_rank", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
     ]
 
     # Use a shared LLM client (resets usage per strategy)
-    llm = LLMClient(model="openai/gpt-oss-120b")
+    llm_model = "openai/gpt-oss-120b"
+    llm = LLMClient(model=llm_model)
 
     all_rows = []
     summary = {}
@@ -401,28 +511,24 @@ def main():
             "total_usage": result["total_usage"],
         }
 
-        # Tag rows for the combined CSV
+        # Save structured results to folders
+        save_structured_results(
+            prompt_name=name,
+            results=result["results"],
+            total_usage=result["total_usage"],
+            accuracy=accuracy,
+            llm_model=llm_model,
+            temperature=temp,
+            output_root=args.out,
+        )
+
+        # Tag rows for the combined collection
         for row in result["results"]:
             row["prompt_strategy"] = name
         all_rows.extend(result["results"])
 
         print(f"  -> {name}: Accuracy = {accuracy:.2%}  |  "
               f"Tokens = {result['total_usage']['total_tokens']:,}")
-
-    # Save combined CSV with detailed columns
-    df_all = pd.DataFrame(all_rows)
-    # Reorder columns for clarity
-    col_order = [
-        "prompt_strategy", "id", "problem_text", "full_prompt",
-        "raw_response", "reasoning_trace",
-        "raw_prediction", "prediction", "gold", "match",
-        "prompt_tokens", "completion_tokens", "total_tokens",
-    ]
-    # Only include columns that exist
-    col_order = [c for c in col_order if c in df_all.columns]
-    df_all = df_all[col_order]
-    df_all.to_csv(args.out, index=False)
-    print(f"\nResults saved to {args.out}")
 
     # Print summary table
     print(f"\n{'='*60}")
@@ -435,7 +541,7 @@ def main():
 
     # Generate plots
     try:
-        generate_plots(summary)
+        generate_plots(summary, output_dir=os.path.join(args.out, "media"))
     except ImportError:
         print("\nmatplotlib not installed — skipping plots.")
 
