@@ -379,7 +379,7 @@ def generate_plots(summary: dict, output_dir: str = "media"):
                      ha="center", va="bottom", fontsize=10, fontweight="bold")
 
     plt.tight_layout()
-    plot_path = os.path.join(output_dir, "prompt_comparison_results.png")
+    plot_path = os.path.join(output_dir, "prompt_comparison_results_rank.png")
     plt.savefig(plot_path, dpi=150)
     plt.close()
     print(f"\nPlot saved to {plot_path}")
@@ -472,16 +472,16 @@ def main():
     # Define prompt strategies to evaluate
     # Each tuple: (name, template, parser_type, label_map, temperature)
     strategies = [
-        ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
-        ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0),
-        ("PAPER_DECOMPOSITION_PROMPT_V3", PAPER_DECOMPOSITION_PROMPT_V3, "decomposition", DECOMPOSITION_V3_LABEL_MAP, 0),
-        ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      0),
-        ("ADAPTIVE_SELECTION_PROMPT_V2", ADAPTIVE_SELECTION_PROMPT_V2, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
-        ("ADAPTIVE_SELECTION_PROMPT_V2_1", ADAPTIVE_SELECTION_PROMPT_V2_1, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
-        ("ADAPTIVE_SELECTION_PROMPT_V3", ADAPTIVE_SELECTION_PROMPT_V3, "adaptive_v3", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
-        ("ONE_SHOT_CLASSIFICATION_PROMPT", ONE_SHOT_CLASSIFICATION_PROMPT, "one_shot", ONE_SHOT_LABEL_MAP, 0),
-        ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
-        ("DECOMPOSITION_CUSTOM_PROMPT", DECOMPOSITION_CUSTOM_PROMPT, "decomposition", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
+        # ("PAPER_DECOMPOSITION_PROMPT", PAPER_DECOMPOSITION_PROMPT, "decomposition", DECOMPOSITION_LABEL_MAP, 0),
+        # ("PAPER_DECOMPOSITION_PROMPT_V2", PAPER_DECOMPOSITION_PROMPT_V2, "decomposition", DECOMPOSITION_V2_LABEL_MAP, 0),
+        # ("PAPER_DECOMPOSITION_PROMPT_V3", PAPER_DECOMPOSITION_PROMPT_V3, "decomposition", DECOMPOSITION_V3_LABEL_MAP, 0),
+        # ("ADAPTIVE_SELECTION_PROMPT",  ADAPTIVE_SELECTION_PROMPT,  "adaptive",       ADAPTIVE_LABEL_MAP,      0),
+        # ("ADAPTIVE_SELECTION_PROMPT_V2", ADAPTIVE_SELECTION_PROMPT_V2, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
+        # ("ADAPTIVE_SELECTION_PROMPT_V2_1", ADAPTIVE_SELECTION_PROMPT_V2_1, "adaptive_v2", ADAPTIVE_LABEL_MAP, 0),
+        # ("ADAPTIVE_SELECTION_PROMPT_V3", ADAPTIVE_SELECTION_PROMPT_V3, "adaptive_v3", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
+        # ("ONE_SHOT_CLASSIFICATION_PROMPT", ONE_SHOT_CLASSIFICATION_PROMPT, "one_shot", ONE_SHOT_LABEL_MAP, 0),
+        # ("FEW_SHOT_CLASSIFICATION_PROMPT", FEW_SHOT_CLASSIFICATION_PROMPT, "few_shot", FEW_SHOT_LABEL_MAP, 0),
+        #("DECOMPOSITION_CUSTOM_PROMPT", DECOMPOSITION_CUSTOM_PROMPT, "decomposition", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK", ADAPTIVE_SELECTION_PROMPT_RANK, "adaptive_rank", DECOMPOSITION_CUSTOM_LABEL_MAP, 0),
     ]
 
