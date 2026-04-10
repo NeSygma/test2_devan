@@ -19,19 +19,44 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class LLMClient:
+    # Provider configs: (base_url, env_var_for_key)
+    PROVIDERS = {
+        "nvidia": {
+            "base_url": "https://integrate.api.nvidia.com/v1",
+            "env_key": "NVIDIA_API_KEY",
+        },
+        "gemini": {
+            "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "env_key": "GEMINI_API_KEY",
+        },
+    }
+
     def __init__(self, api_key: Optional[str] = None, model: str = "openai/gpt-oss-120b"):
         """
-        A wrapper for the Nvidia NIM LLM API using OpenAI SDK.
-        Default model: openai/gpt-oss-120b
+        A wrapper for LLM APIs using the OpenAI SDK.
+
+        Supported providers (auto-detected from model name):
+          - Nvidia NIM:        any model not starting with "gemini-"
+                               (env: NVIDIA_API_KEY)
+          - Google AI Studio:  model names starting with "gemini-"
+                               e.g. "gemini-2.5-flash-lite"
+                               (env: GEMINI_API_KEY)
+
+        Default model: openai/gpt-oss-120b (Nvidia NIM)
         """
-        # Prioritize passed-in key, then env NVIDiA_API_KEY, then the provided testing key
-        key = api_key or os.environ.get("NVIDIA_API_KEY")
-        
-        self.client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=key
-        )
         self.default_model = model
+        provider = "gemini" if model.startswith("gemini-") else "nvidia"
+        cfg = self.PROVIDERS[provider]
+
+        key = api_key or os.environ.get(cfg["env_key"])
+        if not key:
+            print(f"Warning: No API key found. Set {cfg['env_key']} env var or pass api_key.")
+
+        self.client = OpenAI(
+            base_url=cfg["base_url"],
+            api_key=key,
+        )
+        self.provider = provider
         self._total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         
     def _handle_rate_limit(self, headers):

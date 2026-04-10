@@ -345,6 +345,45 @@ Example output format:
 }
 """
 
+ADAPTIVE_SELECTION_PROMPT_RANK_2 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select the most appropriate solver for solving it.
+You have three solvers to choose from:
+
+1. VAMPIRE (Automated Theorem Prover — First-Order Logic):
+- Best for: Determining whether a natural-language conclusion logically follows from a set of premises, where the answer may be True, False, or Uncertain. Excels at abstract categorical reasoning with universal ("for all") and existential ("there exists") quantifiers over rich relational structures, under an open-world assumption.
+- Features: Universal (∀) and existential (∃) quantifiers, predicates, logical connectives (¬, ∧, ∨, →, ↔), and negation-based refutation proofs using TPTP format.
+- Warning: Not ideal for problems requiring numeric counting bounds, entity-to-position assignment, or explicit integer arithmetic.
+- Typical problems: Entailment checking from premises to a conclusion, categorical syllogisms, property inheritance chains, proving/disproving abstract claims.
+- Example patterns: "All X are Y", "No A are B", "If someone is P then they are Q", premises describing categories and properties of named individuals.
+
+2. CLINGO (Answer Set Programming — Logic Programming):
+- Best for: Combinatorial search and planning problems that require finding a valid configuration or action sequence over fully-specified discrete domains. Operates under a strict closed-world assumption with generate-define-test methodology.
+- Features: Facts, rules, integrity constraints, choice rules, optimization (#minimize/#maximize), aggregates (#count, #sum), and recursive reachability/path finding.
+- Warning: Grounding blows up on large numeric ranges. If the problem requires complex arithmetic, real numbers, or counting bounds with conditional slot references, do not use Clingo.
+- Typical problems: Logic puzzles, graph coloring, multi-step action planning, resource allocation with discrete choices, set cover, combinatorial optimization.
+- Example patterns: "Find a valid sequence of state transitions connecting a start state to a goal state", "Assign properties to discrete elements such that no exclusion rules are violated", "Find all valid combinations that satisfy a closed set of conditions".
+
+3. Z3 (SMT Solver — Satisfiability Modulo Theories):
+- Best for: Problems that assign entities to ordered positions or slots under strict conditional constraints with numeric counting bounds ("at least N", "no more than M", "exactly K per slot"). Handles both constraint satisfaction and validity checking with precise arithmetic.
+- Features: Integer, Real, and Boolean symbolic variables, Z3 logical operators (And, Or, Not, Implies), arithmetic constraints, Distinct, arrays, optimization (minimize/maximize), and model finding.
+- Warning: Not ideal for multi-step action planning, recursive path finding, or pure qualitative logic with complex quantifier nesting where no numeric or positional structure is present.
+- Typical problems: Entity-to-slot scheduling under conditional rules, selection problems with cardinality bounds, ordering/sequencing with positional constraints, verifying which arrangement is valid or must be true.
+- Example patterns: "Assign items to a discrete sequence of positions governed by relational constraints", "Select subsets governed by specific numeric minimum or maximum cardinality bounds", "Evaluate which conditional assignments must or could logically be true".
+
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+Analyze the problem structure carefully and rank ALL three solvers from most suitable to least suitable for this problem.
+Provide your final answer after the analysis as a JSON object with the following format.
+{
+    "solver_ranking": ["MOST_SUITABLE", "SECOND_CHOICE", "LEAST_SUITABLE"]
+}
+Example output format:
+{
+    "solver_ranking": ["CLINGO", "Z3", "VAMPIRE"]
+}
+"""
+
 DECOMPOSITION_CUSTOM_PROMPT = """ You are a logician and reasoning systems expert specializing in symbolic reasoning frameworks. Given a text that may contain one or multiple logical reasoning problems, identify each problem, determine its type, and decompose the text accordingly. Return the result strictly as a JSON object with "result" containing an array of problem objects.
 Specifically, your task is to:
 1. First, analyze the input text to identify how many distinct reasoning problems it contains.

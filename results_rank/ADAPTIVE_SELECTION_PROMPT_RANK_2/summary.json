@@ -1,0 +1,89 @@
+{
+  "prompt_name": "ADAPTIVE_SELECTION_PROMPT_RANK_2",
+  "llm_model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "timestamp": "2026-04-10T11:37:40.630677",
+  "num_problems": 256,
+  "rank_order_score": 0.869140625,
+  "top1_accuracy": 0.66796875,
+  "total_usage": {
+    "prompt_tokens": 296459,
+    "completion_tokens": 85162,
+    "total_tokens": 381621
+  },
+  "per_benchmark": {
+    "ar_lsat": {
+      "num_problems": 64,
+      "rank_order_score": 0.86328125,
+      "num_perfect": 32,
+      "num_partial": 31,
+      "num_zero": 1,
+      "pct_perfect": 50.0,
+      "pct_partial": 48.4375,
+      "pct_zero": 1.5625,
+      "accuracy": 0.5,
+      "total_tokens": 90613
+    },
+    "aspbench_easy": {
+      "num_problems": 64,
+      "rank_order_score": 0.890625,
+      "num_perfect": 42,
+      "num_partial": 20,
+      "num_zero": 2,
+      "pct_perfect": 65.625,
+      "pct_partial": 31.25,
+      "pct_zero": 3.125,
+      "accuracy": 0.65625,
+      "total_tokens": 93342
+    },
+    "aspbench_hard": {
+      "num_problems": 64,
+      "rank_order_score": 0.87890625,
+      "num_perfect": 33,
+      "num_partial": 31,
+      "num_zero": 0,
+      "pct_perfect": 51.5625,
+      "pct_partial": 48.4375,
+      "pct_zero": 0.0,
+      "accuracy": 0.515625,
+      "total_tokens": 122015
+    },
+    "folio": {
+      "num_problems": 64,
+      "rank_order_score": 0.84375,
+      "num_perfect": 54,
+      "num_partial": 0,
+      "num_zero": 10,
+      "pct_perfect": 84.375,
+      "pct_partial": 0.0,
+      "pct_zero": 15.625,
+      "accuracy": 1.0,
+      "total_tokens": 75651
+    }
+  },
+  "scoring_rubric": {
+    "description": "1.0 = exact ideal order, 0.75 = top-2 swapped (worst still last), 0.0 = worst solver in top-2",
+    "ideal_rankings": {
+      "aspbench_easy": [
+        "CLINGO",
+        "Z3",
+        "VAMPIRE"
+      ],
+      "aspbench_hard": [
+        "CLINGO",
+        "Z3",
+        "VAMPIRE"
+      ],
+      "ar_lsat": [
+        "Z3",
+        "CLINGO",
+        "VAMPIRE"
+      ],
+      "folio": [
+        "VAMPIRE",
+        "Z3",
+        "CLINGO"
+      ]
+    }
+  }
+}
