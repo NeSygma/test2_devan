@@ -1,0 +1,97 @@
+{
+  "prompt_name": "ADAPTIVE_SELECTION_PROMPT_RANK",
+  "llm_model": "openai/gpt-oss-120b",
+  "temperature": 0,
+  "timestamp": "2026-04-15T19:52:24.088888",
+  "num_problems": 80,
+  "rank_order_score": 0.709375,
+  "top1_accuracy": 0.75,
+  "total_usage": {
+    "prompt_tokens": 96985,
+    "completion_tokens": 27304,
+    "total_tokens": 124289
+  },
+  "per_benchmark": {
+    "ar_lsat": {
+      "num_problems": 20,
+      "rank_order_score": 0.9125,
+      "num_perfect": 13,
+      "num_partial": 7,
+      "num_bot2swap": 0,
+      "num_zero": 0,
+      "pct_perfect": 65.0,
+      "pct_partial": 35.0,
+      "pct_bot2swap": 0.0,
+      "pct_zero": 0.0,
+      "accuracy": 0.65,
+      "total_tokens": 26876
+    },
+    "aspbench_easy": {
+      "num_problems": 20,
+      "rank_order_score": 0.95,
+      "num_perfect": 16,
+      "num_partial": 4,
+      "num_bot2swap": 0,
+      "num_zero": 0,
+      "pct_perfect": 80.0,
+      "pct_partial": 20.0,
+      "pct_bot2swap": 0.0,
+      "pct_zero": 0.0,
+      "accuracy": 0.8,
+      "total_tokens": 28144
+    },
+    "aspbench_hard": {
+      "num_problems": 20,
+      "rank_order_score": 0.925,
+      "num_perfect": 14,
+      "num_partial": 6,
+      "num_bot2swap": 0,
+      "num_zero": 0,
+      "pct_perfect": 70.0,
+      "pct_partial": 30.0,
+      "pct_bot2swap": 0.0,
+      "pct_zero": 0.0,
+      "accuracy": 0.7,
+      "total_tokens": 40061
+    },
+    "folio": {
+      "num_problems": 20,
+      "rank_order_score": 0.05,
+      "num_perfect": 1,
+      "num_partial": 0,
+      "num_bot2swap": 0,
+      "num_zero": 19,
+      "pct_perfect": 5.0,
+      "pct_partial": 0.0,
+      "pct_bot2swap": 0.0,
+      "pct_zero": 95.0,
+      "accuracy": 0.85,
+      "total_tokens": 29208
+    }
+  },
+  "scoring_rubric": {
+    "description": "1.0 = exact ideal order, 0.75 = top-2 swapped (worst still last), 0.5 = 1st correct but 2nd/3rd swapped, 0.0 = worst solver in top-2",
+    "ideal_rankings": {
+      "aspbench_easy": [
+        "CLINGO",
+        "Z3",
+        "VAMPIRE"
+      ],
+      "aspbench_hard": [
+        "CLINGO",
+        "Z3",
+        "VAMPIRE"
+      ],
+      "ar_lsat": [
+        "Z3",
+        "CLINGO",
+        "VAMPIRE"
+      ],
+      "folio": [
+        "VAMPIRE",
+        "Z3",
+        "CLINGO"
+      ]
+    }
+  }
+}

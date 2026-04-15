@@ -384,6 +384,47 @@ Example output format:
 }
 """
 
+ADAPTIVE_SELECTION_PROMPT_RANK_3 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select the most appropriate solver for solving it.
+You have three solvers to choose from:
+
+1. VAMPIRE (Automated Theorem Prover — First-Order Logic):
+- Target Answer Types: True/False/Uncertain, Yes/No entailment checks, and determining if a specific hypothesis is valid or invalid.
+- Best for: Problems requiring expressive monotonic reasoning under an open-world assumption, involving complex entity relationships, universal ("for all") and existential ("there exists") quantifiers, and formal theorem proving over rich relational structures.
+- Features: Universal (∀) and existential (∃) quantifiers, logical connectives (¬, ∧, ∨, →, ↔), predicates, functions, constants, equality, and negation-based refutation proofs using TPTP format.
+- Open-world assumption: anything not explicitly asserted as an axiom or derivable from axioms is unknown, not false.
+- Typical problems: Mathematical theorems, categorical syllogisms, complex logical entailments, nested quantifications, claim checking via proof/refutation.
+- Example patterns: "For all X, there exists Y such that...", "If and only if...", "All X are Y", "No A are B", "Is it true that...?", proving/disproving logical claims.
+
+2. CLINGO (Answer Set Programming — Logic Programming):
+- Target Answer Types: Constructed configurations, enumeration of all valid states, exact plans/schedules, or structurally generated outputs.
+- Best for: Problems where conclusions are deduced step by step from known facts and rules, operating under a closed-world assumption, capable of non-monotonic default reasoning, planning, and combinatorial search using generate-define-test methodology.
+- Features: Facts as simple statements, rules written as clauses with heads and bodies, integrity constraints that eliminate invalid worlds, choice rules for generating candidate solutions, optimization via #minimize/#maximize, and aggregates (#count, #sum).
+- Closed-world assumption: anything not explicitly stated as a fact or derivable from a rule is considered false.
+- Typical problems: Deductive reasoning, rule-based inference, expert systems, planning with temporal logic and frame axioms, state exclusivity, graph coloring, scheduling with explicit action modeling.
+- Example patterns: "If something is X then it is Y", "X is a bird and does not have an exception, so X can fly", "Given these rules, what can be concluded?", step-by-step rule chaining, default reasoning with exceptions.
+
+3. Z3 (SMT Solver — Satisfiability Modulo Theories):
+- Target Answer Types: Multiple-choice options (by testing each option against constraints to see which must/could be true), and specific variable assignments.
+- Best for: Problems that involve constraints, satisfiability, consistency checking, arithmetic/logical conditions, assignment under constraints, scheduling/allocation constraints, ordering/sequencing, or SAT-like analytical reasoning. Handles both CSP-style and SAT-style problems.
+- Features: Boolean (Bool), integer (Int), and real (Real) symbolic variables, Z3 logical operators (And, Or, Not, Implies), arithmetic constraints, arrays, optimization (minimize/maximize), model finding, and theorem proving via negation.
+- Typical problems: Constraint satisfaction puzzles, arrangement/allocation problems, scheduling, spatial reasoning, arithmetic optimization, verifying whether a configuration satisfies logical requirements, checking consistency of assignments.
+- Example patterns: "X is to the left of Y", "X is between Y and Z", "Find values such that all constraints are satisfied", "Which arrangement is valid?", ordering under constraints, resource allocation.
+
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+Analyze the problem and answer structure carefully and rank ALL three solvers from most suitable to least suitable for this problem regardless of its difficulty.
+Provide your final answer after the analysis as a JSON object with the following format.
+{
+    "solver_ranking": ["MOST_SUITABLE", "SECOND_CHOICE", "LEAST_SUITABLE"]
+}
+Example output format:
+{
+    "solver_ranking": ["CLINGO", "Z3", "VAMPIRE"]
+}
+"""
+
 DECOMPOSITION_CUSTOM_PROMPT = """ You are a logician and reasoning systems expert specializing in symbolic reasoning frameworks. Given a text that may contain one or multiple logical reasoning problems, identify each problem, determine its type, and decompose the text accordingly. Return the result strictly as a JSON object with "result" containing an array of problem objects.
 Specifically, your task is to:
 1. First, analyze the input text to identify how many distinct reasoning problems it contains.

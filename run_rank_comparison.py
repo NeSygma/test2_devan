@@ -1,6 +1,6 @@
 """
 Rank Prompt Comparison Evaluation Script
-Compares ADAPTIVE_SELECTION_PROMPT_RANK vs ADAPTIVE_SELECTION_PROMPT_RANK_2
+Compares ADAPTIVE_SELECTION_PROMPT_RANK, RANK_2, and RANK_3
 for solver ranking quality using order-based scoring.
 
 Scoring evaluates the FULL ranking order against the ideal per benchmark:
@@ -11,10 +11,14 @@ Scoring evaluates the FULL ranking order against the ideal per benchmark:
 Scoring rules:
   - 1.0  : Ranking matches the ideal order exactly
   - 0.75 : 1st and 2nd solvers are swapped, but worst solver is still last
+  - 0.5  : 1st solver is correct, but 2nd and 3rd solvers are swapped
   - 0.0  : The worst solver (3rd in ideal) appears in 1st or 2nd place
 
-Evaluates only on FOLIO, ARLSAT, and ASPBench (easy + hard) datasets.
-Uses openai/gpt-oss-120b on Nvidia NIM with temperature=0 for both prompts.
+Evaluates on FOLIO, ARLSAT, and ASPBench (easy + hard) datasets.
+Runs each prompt on TWO LLMs:
+  - openai/gpt-oss-120b  (Nvidia NIM)
+  - gemini-3.1-flash-lite-preview  (Google AI Studio)
+Results are separated per LLM under results_rank/{llm_name}/.
 Outputs structured results to results_rank/ directory.
 """
 
@@ -35,6 +39,7 @@ from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 from solver_select_pipeline.prompts import (
     ADAPTIVE_SELECTION_PROMPT_RANK,
     ADAPTIVE_SELECTION_PROMPT_RANK_2,
+    ADAPTIVE_SELECTION_PROMPT_RANK_3,
 )
 
 # ── Label Mapping ──────────────────────────────────────────────────────────────
@@ -46,13 +51,28 @@ RANK_LABEL_MAP = {"CLINGO": "LP", "VAMPIRE": "FOL", "Z3": "CSP"}
 
 # ── Per-Benchmark Ideal Rankings ───────────────────────────────────────────────
 # The ideal solver ranking order for each benchmark.
-# Scoring: 1.0 if exact match, 0.75 if top-2 swapped (worst still last), 0.0 otherwise.
+# Scoring: 1.0 if exact match, 0.75 if top-2 swapped (worst still last),
+#          0.5 if 1st correct but 2nd/3rd swapped, 0.0 otherwise.
 BENCHMARK_IDEAL_RANKINGS = {
     "aspbench_easy": ["CLINGO", "Z3", "VAMPIRE"],
     "aspbench_hard": ["CLINGO", "Z3", "VAMPIRE"],
     "ar_lsat":       ["Z3", "CLINGO", "VAMPIRE"],
     "folio":         ["VAMPIRE", "Z3", "CLINGO"],
 }
+
+# ── LLM Configurations ────────────────────────────────────────────────────────
+LLM_CONFIGS = [
+    {
+        "model": "openai/gpt-oss-120b",
+        "short_name": "gpt_oss_120b",
+        "display_name": "GPT-OSS-120B",
+    },
+    {
+        "model": "gemini-3.1-flash-lite-preview",
+        "short_name": "gemini_31_flash_lite",
+        "display_name": "Gemini 3.1 Flash Lite",
+    },
+]
 
 
 def map_label(label: str, label_map: dict = None) -> str:
@@ -107,6 +127,7 @@ def _compute_rank_order_score(ranking: list, benchmark: str) -> float:
     Compares the model's ranking to the ideal ranking for the benchmark:
       - 1.0  : Exact match with ideal order
       - 0.75 : 1st and 2nd solvers swapped, worst solver still in last place
+      - 0.5  : 1st solver is correct, but 2nd and 3rd solvers are swapped
       - 0.0  : Worst solver (3rd in ideal) appears in 1st or 2nd place,
                or ranking is empty/invalid
     """
@@ -121,11 +142,20 @@ def _compute_rank_order_score(ranking: list, benchmark: str) -> float:
     if worst_solver in model_top3[:2]:
         return 0.0
 
-    # Worst solver is in last place (position 3). Check top-2 order.
+    # Exact match with ideal order
     if model_top3 == ideal:
-        return 1.0   # exact match
-    else:
-        return 0.75  # top-2 swapped, worst still last
+        return 1.0
+
+    # 1st and 2nd swapped, worst solver still last
+    if model_top3[0] == ideal[1] and model_top3[1] == ideal[0] and model_top3[2] == ideal[2]:
+        return 0.75
+
+    # 1st correct, but 2nd and 3rd swapped
+    if model_top3[0] == ideal[0] and model_top3[1] == ideal[2] and model_top3[2] == ideal[1]:
+        return 0.5
+
+    # Anything else (shouldn't normally reach here with 3 solvers, but just in case)
+    return 0.0
 
 
 def _format_adaptive_prompt(prompt_template: str, problem_text: str) -> str:
@@ -255,12 +285,28 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
     return {"results": results, "total_usage": total_usage}
 
 
+# ── Short Display Names ───────────────────────────────────────────────────────
+
+def _get_short_name(name: str) -> str:
+    """Map prompt strategy name to a short display label."""
+    upper = name.upper()
+    if "RANK_3" in upper:
+        return "Adaptive\nRank V3"
+    if "RANK_2" in upper:
+        return "Adaptive\nRank V2"
+    if "RANK" in upper:
+        return "Adaptive\nRank V1"
+    return name
+
+
 # ── Plotting ───────────────────────────────────────────────────────────────────
 
-def generate_plots(summary: dict, output_dir: str = "results_rank/media"):
+def generate_plots(summary: dict, llm_display_name: str,
+                   output_dir: str = "results_rank/media"):
     """
-    Generate comparison plots for rank order scores and token usage.
-    summary: {prompt_name: {"rank_order_score": float, "total_usage": dict, ...}}
+    Generate comparison plots for rank order scores, accuracy, and token usage
+    for a single LLM's evaluation results.
+    summary: {prompt_name: {"rank_order_score": float, "accuracy": float, "total_usage": dict, ...}}
     """
     import matplotlib.pyplot as plt
     import numpy as np
@@ -268,18 +314,8 @@ def generate_plots(summary: dict, output_dir: str = "results_rank/media"):
     os.makedirs(output_dir, exist_ok=True)
 
     names = list(summary.keys())
+    short_names = [_get_short_name(n) for n in names]
 
-    # Short display labels
-    short_names = []
-    for n in names:
-        if "RANK_2" in n.upper():
-            short_names.append("Adaptive\nRank V2")
-        elif "RANK" in n.upper():
-            short_names.append("Adaptive\nRank V1")
-        else:
-            short_names.append(n)
-
-    # ── Figure 1: Overall Rank Order Score + Per-Benchmark ───────────────────
     benchmarks = list(BENCHMARK_IDEAL_RANKINGS.keys())
     bench_short = {
         "aspbench_easy": "ASPBench\nEasy",
@@ -288,12 +324,17 @@ def generate_plots(summary: dict, output_dir: str = "results_rank/media"):
         "folio": "FOLIO",
     }
 
-    fig, axes = plt.subplots(1, 3, figsize=(22, 6))
+    colors = ["#4C72B0", "#55A868", "#C44E52"][:len(names)]
+
+    # ── Figure 1: Rank Order Score (Overall + Per-Benchmark) + Token Usage ────
+    fig, axes = plt.subplots(1, 3, figsize=(24, 6))
+    fig.suptitle(f"Rank Prompt Comparison — {llm_display_name}",
+                 fontsize=15, fontweight="bold", y=1.02)
 
     # 1a. Overall Rank Order Score
     overall_scores = [summary[n]["rank_order_score"] for n in names]
-    bars = axes[0].bar(short_names, overall_scores, color=["#4C72B0", "#55A868"],
-                       edgecolor="white", linewidth=0.8, width=0.45)
+    bars = axes[0].bar(short_names, overall_scores, color=colors,
+                       edgecolor="white", linewidth=0.8, width=0.35)
     axes[0].set_ylim(0, 1.15)
     axes[0].set_ylabel("Avg Score", fontsize=12)
     axes[0].set_title("Overall Rank Order Score", fontsize=13, fontweight="bold")
@@ -303,32 +344,32 @@ def generate_plots(summary: dict, output_dir: str = "results_rank/media"):
 
     # 1b. Per-benchmark rank order scores grouped bar chart
     x = np.arange(len(benchmarks))
-    width = 0.35
-    colors = ["#4C72B0", "#55A868"]
+    n_strats = len(names)
+    width = 0.8 / n_strats
     for i, name in enumerate(names):
         per_bench = summary[name].get("per_benchmark", {})
         bench_scores = [per_bench.get(b, {}).get("rank_order_score", 0.0) for b in benchmarks]
-        bars = axes[1].bar(x + i * width, bench_scores, width,
+        bars = axes[1].bar(x + i * width - (n_strats - 1) * width / 2, bench_scores, width,
                            label=short_names[i].replace("\n", " "),
                            color=colors[i], edgecolor="white", linewidth=0.8)
         for bar, score in zip(bars, bench_scores):
             axes[1].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
-                         f"{score:.2f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
+                         f"{score:.2f}", ha="center", va="bottom", fontsize=8, fontweight="bold")
 
-    axes[1].set_xticks(x + width / 2)
+    axes[1].set_xticks(x)
     axes[1].set_xticklabels([bench_short.get(b, b) for b in benchmarks], fontsize=10)
     axes[1].set_ylim(0, 1.15)
     axes[1].set_ylabel("Avg Rank Order Score", fontsize=12)
     axes[1].set_title("Rank Order Score by Benchmark", fontsize=13, fontweight="bold")
-    axes[1].legend(loc="upper right")
+    axes[1].legend(loc="upper right", fontsize=8)
 
     # 1c. Token usage stacked bar chart
     prompt_tokens = [summary[n]["total_usage"]["prompt_tokens"] for n in names]
     completion_tokens = [summary[n]["total_usage"]["completion_tokens"] for n in names]
     x2 = np.arange(len(names))
-    axes[2].bar(x2, prompt_tokens, 0.45, label="Prompt Tokens",
+    axes[2].bar(x2, prompt_tokens, 0.35, label="Prompt Tokens",
                 color="#4C72B0", edgecolor="white", linewidth=0.8)
-    axes[2].bar(x2, completion_tokens, 0.45, bottom=prompt_tokens,
+    axes[2].bar(x2, completion_tokens, 0.35, bottom=prompt_tokens,
                 label="Completion Tokens", color="#DD8452",
                 edgecolor="white", linewidth=0.8)
     axes[2].set_xticks(x2)
@@ -343,24 +384,27 @@ def generate_plots(summary: dict, output_dir: str = "results_rank/media"):
 
     plt.tight_layout()
     plot_path = os.path.join(output_dir, "rank_prompt_comparison.png")
-    plt.savefig(plot_path, dpi=150)
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"\nPlot saved to {plot_path}")
 
-    # ── Figure 2: Score Distribution (perfect / partial / zero) ──────────────
+    # ── Figure 2: Score Distribution (perfect / partial / bot2swap / zero) ────
     fig, axes = plt.subplots(1, len(names), figsize=(7 * len(names), 6))
+    fig.suptitle(f"Score Distribution — {llm_display_name}",
+                 fontsize=15, fontweight="bold", y=1.02)
     if len(names) == 1:
         axes = [axes]
 
     for i, name in enumerate(names):
         per_bench = summary[name].get("per_benchmark", {})
-        categories = ["1.0\n(Perfect)", "0.75\n(Top-2 Swap)", "0.0\n(Bad)"]
+        categories = ["1.0\n(Perfect)", "0.75\n(Top-2 Swap)", "0.5\n(Bot-2 Swap)", "0.0\n(Bad)"]
         for j, bench in enumerate(benchmarks):
             stats = per_bench.get(bench, {})
             pct_perfect = stats.get("pct_perfect", 0)
             pct_partial = stats.get("pct_partial", 0)
+            pct_bot2swap = stats.get("pct_bot2swap", 0)
             pct_zero = stats.get("pct_zero", 0)
-            vals = [pct_perfect, pct_partial, pct_zero]
+            vals = [pct_perfect, pct_partial, pct_bot2swap, pct_zero]
             x_pos = np.arange(len(categories)) + j * 0.18
             axes[i].bar(x_pos, vals, 0.16, label=bench_short.get(bench, bench).replace("\n", " "),
                         edgecolor="white", linewidth=0.5)
@@ -375,7 +419,74 @@ def generate_plots(summary: dict, output_dir: str = "results_rank/media"):
 
     plt.tight_layout()
     plot_path = os.path.join(output_dir, "rank_score_distribution.png")
-    plt.savefig(plot_path, dpi=150)
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Plot saved to {plot_path}")
+
+    # ── Figure 3: Top-1 Accuracy (Overall + Per-Benchmark) ───────────────────
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f"Top-1 Accuracy — {llm_display_name}",
+                 fontsize=15, fontweight="bold", y=1.02)
+
+    # 3a. Overall accuracy
+    overall_acc = [summary[n]["accuracy"] for n in names]
+    bars = axes[0].bar(short_names, [a * 100 for a in overall_acc], color=colors,
+                       edgecolor="white", linewidth=0.8, width=0.35)
+    axes[0].set_ylim(0, 115)
+    axes[0].set_ylabel("Accuracy (%)", fontsize=12)
+    axes[0].set_title("Overall Top-1 Accuracy", fontsize=13, fontweight="bold")
+    for bar, acc in zip(bars, overall_acc):
+        axes[0].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
+                     f"{acc:.1%}", ha="center", va="bottom", fontsize=11, fontweight="bold")
+
+    # 3b. Per-benchmark accuracy grouped bar chart
+    for i, name in enumerate(names):
+        per_bench = summary[name].get("per_benchmark", {})
+        bench_accs = [per_bench.get(b, {}).get("accuracy", 0.0) * 100 for b in benchmarks]
+        bars = axes[1].bar(x + i * width - (n_strats - 1) * width / 2, bench_accs, width,
+                           label=short_names[i].replace("\n", " "),
+                           color=colors[i], edgecolor="white", linewidth=0.8)
+        for bar, acc in zip(bars, bench_accs):
+            axes[1].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+                         f"{acc:.0f}%", ha="center", va="bottom", fontsize=8, fontweight="bold")
+
+    axes[1].set_xticks(x)
+    axes[1].set_xticklabels([bench_short.get(b, b) for b in benchmarks], fontsize=10)
+    axes[1].set_ylim(0, 115)
+    axes[1].set_ylabel("Accuracy (%)", fontsize=12)
+    axes[1].set_title("Top-1 Accuracy by Benchmark", fontsize=13, fontweight="bold")
+    axes[1].legend(loc="upper right", fontsize=8)
+
+    plt.tight_layout()
+    plot_path = os.path.join(output_dir, "rank_accuracy_comparison.png")
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Plot saved to {plot_path}")
+
+    # ── Figure 4: Per-Benchmark Token Usage ──────────────────────────────────
+    fig, ax = plt.subplots(figsize=(10, 6))
+    fig.suptitle(f"Per-Benchmark Token Usage — {llm_display_name}",
+                 fontsize=15, fontweight="bold", y=1.02)
+
+    for i, name in enumerate(names):
+        per_bench = summary[name].get("per_benchmark", {})
+        bench_tokens = [per_bench.get(b, {}).get("total_tokens", 0) for b in benchmarks]
+        bars = ax.bar(x + i * width - (n_strats - 1) * width / 2, bench_tokens, width,
+                      label=short_names[i].replace("\n", " "),
+                      color=colors[i], edgecolor="white", linewidth=0.8)
+        for bar, tok in zip(bars, bench_tokens):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max(bench_tokens) * 0.01,
+                    f"{tok:,}", ha="center", va="bottom", fontsize=7, fontweight="bold")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([bench_short.get(b, b) for b in benchmarks], fontsize=10)
+    ax.set_ylabel("Total Tokens", fontsize=12)
+    ax.set_title("Token Usage by Benchmark", fontsize=13, fontweight="bold")
+    ax.legend(loc="upper right", fontsize=8)
+
+    plt.tight_layout()
+    plot_path = os.path.join(output_dir, "rank_token_per_benchmark.png")
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Plot saved to {plot_path}")
 
@@ -389,8 +500,8 @@ def save_structured_results(prompt_name: str, results: list, total_usage: dict,
                             output_root: str = "results_rank"):
     """
     Save results in a structured folder layout:
-        results_rank/{prompt_name}/{benchmark_name}/results.jsonl
-        results_rank/{prompt_name}/summary.json
+        results_rank/{llm_short_name}/{prompt_name}/{benchmark_name}/results.jsonl
+        results_rank/{llm_short_name}/{prompt_name}/summary.json
     """
     prompt_dir = os.path.join(output_root, prompt_name)
     os.makedirs(prompt_dir, exist_ok=True)
@@ -422,7 +533,7 @@ def save_structured_results(prompt_name: str, results: list, total_usage: dict,
         "total_usage": total_usage,
         "per_benchmark": per_benchmark_stats,
         "scoring_rubric": {
-            "description": "1.0 = exact ideal order, 0.75 = top-2 swapped (worst still last), 0.0 = worst solver in top-2",
+            "description": "1.0 = exact ideal order, 0.75 = top-2 swapped (worst still last), 0.5 = 1st correct but 2nd/3rd swapped, 0.0 = worst solver in top-2",
             "ideal_rankings": {k: v for k, v in BENCHMARK_IDEAL_RANKINGS.items()},
         },
     }
@@ -433,13 +544,129 @@ def save_structured_results(prompt_name: str, results: list, total_usage: dict,
     print(f"  Results saved to {prompt_dir}/")
 
 
+# ── Per-LLM Evaluation ────────────────────────────────────────────────────────
+
+def compute_per_benchmark_stats(df_strat: pd.DataFrame) -> dict:
+    """Compute per-benchmark breakdown statistics from a strategy DataFrame."""
+    per_bench_scores = {}
+    for bench_name, bench_df in df_strat.groupby("benchmark"):
+        total = len(bench_df)
+        num_perfect = (bench_df["rank_order_score"] == 1.0).sum()
+        num_partial = (bench_df["rank_order_score"] == 0.75).sum()
+        num_bot2swap = (bench_df["rank_order_score"] == 0.5).sum()
+        num_zero = (bench_df["rank_order_score"] == 0.0).sum()
+        per_bench_scores[bench_name] = {
+            "num_problems": total,
+            "rank_order_score": bench_df["rank_order_score"].mean(),
+            "num_perfect": int(num_perfect),
+            "num_partial": int(num_partial),
+            "num_bot2swap": int(num_bot2swap),
+            "num_zero": int(num_zero),
+            "pct_perfect": num_perfect / total * 100 if total > 0 else 0.0,
+            "pct_partial": num_partial / total * 100 if total > 0 else 0.0,
+            "pct_bot2swap": num_bot2swap / total * 100 if total > 0 else 0.0,
+            "pct_zero": num_zero / total * 100 if total > 0 else 0.0,
+            "accuracy": bench_df["match"].mean(),
+            "total_tokens": int(bench_df["total_tokens"].sum()),
+        }
+    return per_bench_scores
+
+
+def run_llm_evaluation(llm_config: dict, strategies: list, problems: list,
+                       output_root: str) -> dict:
+    """
+    Run all prompt strategies on a single LLM and return summary dict.
+    Results are saved under output_root/{llm_short_name}/.
+    """
+    model_name = llm_config["model"]
+    short_name = llm_config["short_name"]
+    display_name = llm_config["display_name"]
+    llm_out = os.path.join(output_root, short_name)
+
+    print(f"\n{'#'*80}")
+    print(f"  LLM: {display_name}  ({model_name})")
+    print(f"{'#'*80}")
+
+    llm = LLMClient(model=model_name)
+    summary = {}
+
+    for strat_idx, (name, template, lmap, temp) in enumerate(strategies):
+        # Cooldown between strategies to let the rate limit bucket refill
+        if strat_idx > 0:
+            print("\n  [Cooldown 5s between strategies...]")
+            time.sleep(5)
+
+        print(f"  [temp={temp}]")
+        result = evaluate_prompt(llm, template, name, problems,
+                                 label_map=lmap, temperature=temp)
+
+        # Compute scores
+        df_strat = pd.DataFrame(result["results"])
+        accuracy = df_strat["match"].mean()
+        avg_rank_score = df_strat["rank_order_score"].mean()
+
+        # Per-benchmark breakdown
+        per_bench_scores = compute_per_benchmark_stats(df_strat)
+
+        summary[name] = {
+            "rank_order_score": avg_rank_score,
+            "accuracy": accuracy,
+            "total_usage": result["total_usage"],
+            "per_benchmark": per_bench_scores,
+        }
+
+        # Save structured results to folders (per-LLM subdirectory)
+        save_structured_results(
+            prompt_name=name,
+            results=result["results"],
+            total_usage=result["total_usage"],
+            overall_score=avg_rank_score,
+            accuracy=accuracy,
+            per_benchmark_stats=per_bench_scores,
+            llm_model=model_name,
+            temperature=temp,
+            output_root=llm_out,
+        )
+
+        print(f"\n  -> {name}:")
+        print(f"     Rank Order Score = {avg_rank_score:.3f}  |  Top-1 Accuracy = {accuracy:.2%}  |  "
+              f"Tokens = {result['total_usage']['total_tokens']:,}")
+        # Per-benchmark breakdown
+        for bench_name in sorted(per_bench_scores.keys()):
+            bs = per_bench_scores[bench_name]
+            print(f"       {bench_name:15s}: Score={bs['rank_order_score']:.3f}  "
+                  f"(Perfect={bs['num_perfect']}, Partial={bs['num_partial']}, Bot2Swap={bs['num_bot2swap']}, Zero={bs['num_zero']})  "
+                  f"Acc={bs['accuracy']:.2%}")
+
+    # Print per-LLM summary table
+    print(f"\n{'='*80}")
+    print(f"  SUMMARY — {display_name}")
+    print(f"{'='*80}")
+    print(f"  {'Prompt':<45s}  {'Rank Score':>10s}  {'Acc':>6s}  {'Tokens':>10s}")
+    print(f"  {'-'*45}  {'-'*10}  {'-'*6}  {'-'*10}")
+    for name, info in summary.items():
+        print(f"  {name:<45s}  {info['rank_order_score']:>10.3f}  {info['accuracy']:>5.1%}  "
+              f"{info['total_usage']['total_tokens']:>10,}")
+    print(f"{'='*80}")
+
+    # Generate per-LLM plots
+    try:
+        media_dir = os.path.join(llm_out, "media")
+        generate_plots(summary, llm_display_name=display_name, output_dir=media_dir)
+    except ImportError:
+        print("\nmatplotlib not installed — skipping plots.")
+
+    return summary
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare ADAPTIVE_SELECTION_PROMPT_RANK vs ADAPTIVE_SELECTION_PROMPT_RANK_2 "
+        description="Compare ADAPTIVE_SELECTION_PROMPT_RANK, RANK_2, and RANK_3 "
                     "for solver ranking quality using weighted scoring. "
-                    "Evaluates on FOLIO, AR-LSAT, and ASPBench datasets only."
+                    "Evaluates on FOLIO, AR-LSAT, and ASPBench datasets "
+                    "across multiple LLMs (GPT-OSS-120B and Gemini 3.1 Flash Lite)."
     )
     parser.add_argument("--limit", type=int, default=5,
                         help="Number of problems per dataset (default: 5)")
@@ -464,112 +691,47 @@ def main():
     print("Scoring rubric:")
     print("  1.0  = exact ideal order")
     print("  0.75 = top-2 swapped, worst solver still last")
+    print("  0.5  = 1st correct, but 2nd and 3rd swapped")
     print("  0.0  = worst solver in position 1 or 2")
     print("\nIdeal rankings per benchmark:")
     for bench, ideal in BENCHMARK_IDEAL_RANKINGS.items():
         print(f"  {bench:15s}: {' > '.join(ideal)}")
     print()
 
-    # Define prompt strategies to evaluate (only the two rank prompts)
+    # Define prompt strategies to evaluate (three rank prompts)
     strategies = [
         ("ADAPTIVE_SELECTION_PROMPT_RANK", ADAPTIVE_SELECTION_PROMPT_RANK, RANK_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK_2", ADAPTIVE_SELECTION_PROMPT_RANK_2, RANK_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_RANK_3", ADAPTIVE_SELECTION_PROMPT_RANK_3, RANK_LABEL_MAP, 0),
     ]
 
-    # Use a shared LLM client (resets usage per strategy)
-    llm_model = "openai/gpt-oss-120b"
-    llm_model_2 = "gemini-3.1-flash-lite-preview"
-    llm = LLMClient(model=llm_model)
+    # Run evaluation on each LLM
+    all_llm_summaries = {}
+    for llm_idx, llm_config in enumerate(LLM_CONFIGS):
+        # Cooldown between LLMs
+        if llm_idx > 0:
+            print("\n\n  [Cooldown 10s between LLMs...]")
+            time.sleep(10)
 
-    all_rows = []
-    summary = {}
-
-    for strat_idx, (name, template, lmap, temp) in enumerate(strategies):
-        # Cooldown between strategies to let the rate limit bucket refill
-        if strat_idx > 0:
-            print("\n  [Cooldown 5s between strategies...]")
-            time.sleep(5)
-
-        print(f"  [temp={temp}]")
-        result = evaluate_prompt(llm, template, name, problems,
-                                 label_map=lmap, temperature=temp)
-
-        # Compute scores
-        df_strat = pd.DataFrame(result["results"])
-        accuracy = df_strat["match"].mean()
-        avg_rank_score = df_strat["rank_order_score"].mean()
-
-        # Per-benchmark breakdown
-        per_bench_scores = {}
-        for bench_name, bench_df in df_strat.groupby("benchmark"):
-            total = len(bench_df)
-            num_perfect = (bench_df["rank_order_score"] == 1.0).sum()
-            num_partial = (bench_df["rank_order_score"] == 0.75).sum()
-            num_zero = (bench_df["rank_order_score"] == 0.0).sum()
-            per_bench_scores[bench_name] = {
-                "num_problems": total,
-                "rank_order_score": bench_df["rank_order_score"].mean(),
-                "num_perfect": int(num_perfect),
-                "num_partial": int(num_partial),
-                "num_zero": int(num_zero),
-                "pct_perfect": num_perfect / total * 100 if total > 0 else 0.0,
-                "pct_partial": num_partial / total * 100 if total > 0 else 0.0,
-                "pct_zero": num_zero / total * 100 if total > 0 else 0.0,
-                "accuracy": bench_df["match"].mean(),
-                "total_tokens": int(bench_df["total_tokens"].sum()),
-            }
-
-        summary[name] = {
-            "rank_order_score": avg_rank_score,
-            "accuracy": accuracy,
-            "total_usage": result["total_usage"],
-            "per_benchmark": per_bench_scores,
-        }
-
-        # Save structured results to folders
-        save_structured_results(
-            prompt_name=name,
-            results=result["results"],
-            total_usage=result["total_usage"],
-            overall_score=avg_rank_score,
-            accuracy=accuracy,
-            per_benchmark_stats=per_bench_scores,
-            llm_model=llm_model,
-            temperature=temp,
+        llm_summary = run_llm_evaluation(
+            llm_config=llm_config,
+            strategies=strategies,
+            problems=problems,
             output_root=args.out,
         )
+        all_llm_summaries[llm_config["display_name"]] = llm_summary
 
-        # Tag rows for the combined collection
-        for row in result["results"]:
-            row["prompt_strategy"] = name
-        all_rows.extend(result["results"])
-
-        print(f"\n  -> {name}:")
-        print(f"     Rank Order Score = {avg_rank_score:.3f}  |  Top-1 Accuracy = {accuracy:.2%}  |  "
-              f"Tokens = {result['total_usage']['total_tokens']:,}")
-        # Per-benchmark breakdown
-        for bench_name in sorted(per_bench_scores.keys()):
-            bs = per_bench_scores[bench_name]
-            print(f"       {bench_name:15s}: Score={bs['rank_order_score']:.3f}  "
-                  f"(Perfect={bs['num_perfect']}, Partial={bs['num_partial']}, Zero={bs['num_zero']})  "
-                  f"Acc={bs['accuracy']:.2%}")
-
-    # Print summary table
-    print(f"\n{'='*80}")
-    print(f"  SUMMARY — Rank Prompt Comparison")
-    print(f"{'='*80}")
-    print(f"  {'Prompt':<45s}  {'Rank Score':>10s}  {'Acc':>6s}  {'Tokens':>10s}")
-    print(f"  {'-'*45}  {'-'*10}  {'-'*6}  {'-'*10}")
-    for name, info in summary.items():
-        print(f"  {name:<45s}  {info['rank_order_score']:>10.3f}  {info['accuracy']:>5.1%}  "
-              f"{info['total_usage']['total_tokens']:>10,}")
-    print(f"{'='*80}")
-
-    # Generate plots
-    try:
-        generate_plots(summary, output_dir=os.path.join(args.out, "media"))
-    except ImportError:
-        print("\nmatplotlib not installed — skipping plots.")
+    # Final cross-LLM summary
+    print(f"\n\n{'#'*80}")
+    print(f"  FINAL CROSS-LLM SUMMARY")
+    print(f"{'#'*80}")
+    print(f"  {'LLM':<25s}  {'Prompt':<40s}  {'Rank Score':>10s}  {'Acc':>6s}  {'Tokens':>10s}")
+    print(f"  {'-'*25}  {'-'*40}  {'-'*10}  {'-'*6}  {'-'*10}")
+    for llm_name, llm_summary in all_llm_summaries.items():
+        for prompt_name, info in llm_summary.items():
+            print(f"  {llm_name:<25s}  {prompt_name:<40s}  {info['rank_order_score']:>10.3f}  "
+                  f"{info['accuracy']:>5.1%}  {info['total_usage']['total_tokens']:>10,}")
+    print(f"{'#'*80}")
 
 
 if __name__ == "__main__":
