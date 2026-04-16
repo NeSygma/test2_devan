@@ -2,29 +2,29 @@
   "prompt_name": "ADAPTIVE_SELECTION_PROMPT_RANK_3",
   "llm_model": "openai/gpt-oss-120b",
   "temperature": 0,
-  "timestamp": "2026-04-15T20:13:05.347953",
+  "timestamp": "2026-04-16T20:54:12.349333",
   "num_problems": 80,
-  "rank_order_score": 0.7875,
-  "top1_accuracy": 0.7875,
+  "rank_order_score": 0.7375,
+  "top1_accuracy": 0.8,
   "total_usage": {
     "prompt_tokens": 104265,
-    "completion_tokens": 25677,
-    "total_tokens": 129942
+    "completion_tokens": 26907,
+    "total_tokens": 131172
   },
   "per_benchmark": {
     "ar_lsat": {
       "num_problems": 20,
-      "rank_order_score": 0.8625,
-      "num_perfect": 9,
-      "num_partial": 11,
+      "rank_order_score": 0.875,
+      "num_perfect": 10,
+      "num_partial": 10,
       "num_bot2swap": 0,
       "num_zero": 0,
-      "pct_perfect": 45.0,
-      "pct_partial": 55.00000000000001,
+      "pct_perfect": 50.0,
+      "pct_partial": 50.0,
       "pct_bot2swap": 0.0,
       "pct_zero": 0.0,
-      "accuracy": 0.45,
-      "total_tokens": 28533
+      "accuracy": 0.5,
+      "total_tokens": 28818
     },
     "aspbench_easy": {
       "num_problems": 20,
@@ -38,35 +38,35 @@
       "pct_bot2swap": 0.0,
       "pct_zero": 0.0,
       "accuracy": 0.85,
-      "total_tokens": 30437
+      "total_tokens": 30783
     },
     "aspbench_hard": {
       "num_problems": 20,
-      "rank_order_score": 0.975,
-      "num_perfect": 18,
-      "num_partial": 2,
+      "rank_order_score": 0.9625,
+      "num_perfect": 17,
+      "num_partial": 3,
       "num_bot2swap": 0,
       "num_zero": 0,
-      "pct_perfect": 90.0,
-      "pct_partial": 10.0,
+      "pct_perfect": 85.0,
+      "pct_partial": 15.0,
       "pct_bot2swap": 0.0,
       "pct_zero": 0.0,
-      "accuracy": 0.9,
-      "total_tokens": 41804
+      "accuracy": 0.85,
+      "total_tokens": 41773
     },
     "folio": {
       "num_problems": 20,
-      "rank_order_score": 0.35,
-      "num_perfect": 7,
+      "rank_order_score": 0.15,
+      "num_perfect": 3,
       "num_partial": 0,
       "num_bot2swap": 0,
-      "num_zero": 13,
-      "pct_perfect": 35.0,
+      "num_zero": 17,
+      "pct_perfect": 15.0,
       "pct_partial": 0.0,
       "pct_bot2swap": 0.0,
-      "pct_zero": 65.0,
-      "accuracy": 0.95,
-      "total_tokens": 29168
+      "pct_zero": 85.0,
+      "accuracy": 1.0,
+      "total_tokens": 29798
     }
   },
   "scoring_rubric": {

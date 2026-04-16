@@ -1,6 +1,6 @@
 """
 Rank Prompt Comparison Evaluation Script
-Compares ADAPTIVE_SELECTION_PROMPT_RANK, RANK_2, and RANK_3
+Compares ADAPTIVE_SELECTION_PROMPT_RANK, RANK_2, RANK_3, and RANK_4
 for solver ranking quality using order-based scoring.
 
 Scoring evaluates the FULL ranking order against the ideal per benchmark:
@@ -40,6 +40,7 @@ from solver_select_pipeline.prompts import (
     ADAPTIVE_SELECTION_PROMPT_RANK,
     ADAPTIVE_SELECTION_PROMPT_RANK_2,
     ADAPTIVE_SELECTION_PROMPT_RANK_3,
+    ADAPTIVE_SELECTION_PROMPT_RANK_4,
 )
 
 # ── Label Mapping ──────────────────────────────────────────────────────────────
@@ -290,6 +291,8 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
 def _get_short_name(name: str) -> str:
     """Map prompt strategy name to a short display label."""
     upper = name.upper()
+    if "RANK_4" in upper:
+        return "Adaptive\nRank V4"
     if "RANK_3" in upper:
         return "Adaptive\nRank V3"
     if "RANK_2" in upper:
@@ -324,7 +327,7 @@ def generate_plots(summary: dict, llm_display_name: str,
         "folio": "FOLIO",
     }
 
-    colors = ["#4C72B0", "#55A868", "#C44E52"][:len(names)]
+    colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3"][:len(names)]
 
     # ── Figure 1: Rank Order Score (Overall + Per-Benchmark) + Token Usage ────
     fig, axes = plt.subplots(1, 3, figsize=(24, 6))
@@ -663,7 +666,7 @@ def run_llm_evaluation(llm_config: dict, strategies: list, problems: list,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare ADAPTIVE_SELECTION_PROMPT_RANK, RANK_2, and RANK_3 "
+        description="Compare ADAPTIVE_SELECTION_PROMPT_RANK, RANK_2, RANK_3, and RANK_4 "
                     "for solver ranking quality using weighted scoring. "
                     "Evaluates on FOLIO, AR-LSAT, and ASPBench datasets "
                     "across multiple LLMs (GPT-OSS-120B and Gemini 3.1 Flash Lite)."
@@ -698,11 +701,12 @@ def main():
         print(f"  {bench:15s}: {' > '.join(ideal)}")
     print()
 
-    # Define prompt strategies to evaluate (three rank prompts)
+    # Define prompt strategies to evaluate (four rank prompts)
     strategies = [
         ("ADAPTIVE_SELECTION_PROMPT_RANK", ADAPTIVE_SELECTION_PROMPT_RANK, RANK_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK_2", ADAPTIVE_SELECTION_PROMPT_RANK_2, RANK_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK_3", ADAPTIVE_SELECTION_PROMPT_RANK_3, RANK_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_RANK_4", ADAPTIVE_SELECTION_PROMPT_RANK_4, RANK_LABEL_MAP, 0),
     ]
 
     # Run evaluation on each LLM
