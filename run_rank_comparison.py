@@ -39,6 +39,7 @@ from solver_select_pipeline.dataset_loader import LogicDatasetLoader
 from solver_select_pipeline.prompts import (
     ADAPTIVE_SELECTION_PROMPT_RANK,
     ADAPTIVE_SELECTION_PROMPT_RANK_2,
+    ADAPTIVE_SELECTION_PROMPT_RANK_2_1,
     ADAPTIVE_SELECTION_PROMPT_RANK_3,
     ADAPTIVE_SELECTION_PROMPT_RANK_4,
 )
@@ -122,41 +123,40 @@ def _get_top_solver(ranking: list) -> str:
     return "UNKNOWN"
 
 
-def _compute_rank_order_score(ranking: list, benchmark: str) -> float:
-    """Compute a single ranking order score for the model's ranking.
+def _determine_rank_match_type(ranking: list, benchmark: str) -> str:
+    """Determine the rank match category for the model's ranking.
 
     Compares the model's ranking to the ideal ranking for the benchmark:
-      - 1.0  : Exact match with ideal order
-      - 0.75 : 1st and 2nd solvers swapped, worst solver still in last place
-      - 0.5  : 1st solver is correct, but 2nd and 3rd solvers are swapped
-      - 0.0  : Worst solver (3rd in ideal) appears in 1st or 2nd place,
-               or ranking is empty/invalid
+      - "perfect"  : Exact match with ideal order
+      - "top2swap" : 1st and 2nd solvers swapped, worst solver still in last place
+      - "bot2swap" : 1st solver is correct, but 2nd and 3rd solvers are swapped
+      - "bad"      : Worst solver (3rd in ideal) appears in 1st or 2nd place,
+                     or ranking is empty/invalid
     """
     ideal = BENCHMARK_IDEAL_RANKINGS.get(benchmark)
     if not ideal or not ranking or len(ranking) < 3:
-        return 0.0
+        return "bad"
 
     model_top3 = ranking[:3]
     worst_solver = ideal[2]  # the solver that should be ranked last
 
-    # If the worst solver leaked into position 1 or 2 → score 0
+    # If the worst solver leaked into position 1 or 2 → bad
     if worst_solver in model_top3[:2]:
-        return 0.0
+        return "bad"
 
     # Exact match with ideal order
     if model_top3 == ideal:
-        return 1.0
+        return "perfect"
 
     # 1st and 2nd swapped, worst solver still last
     if model_top3[0] == ideal[1] and model_top3[1] == ideal[0] and model_top3[2] == ideal[2]:
-        return 0.75
+        return "top2swap"
 
     # 1st correct, but 2nd and 3rd swapped
     if model_top3[0] == ideal[0] and model_top3[1] == ideal[2] and model_top3[2] == ideal[1]:
-        return 0.5
+        return "bot2swap"
 
-    # Anything else (shouldn't normally reach here with 3 solvers, but just in case)
-    return 0.0
+    return "bad"
 
 
 def _format_adaptive_prompt(prompt_template: str, problem_text: str) -> str:
@@ -251,8 +251,8 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
         raw_pred = _get_top_solver(full_ranking)
         predicted = map_label(raw_pred, label_map)
 
-        # Compute ranking order score
-        rank_order_score = _compute_rank_order_score(full_ranking, benchmark)
+        # Compute ranking match type
+        rank_match_type = _determine_rank_match_type(full_ranking, benchmark)
 
         # Token delta
         usage_after = llm.get_total_usage()
@@ -270,7 +270,7 @@ def evaluate_prompt(llm: LLMClient, prompt_template: str, prompt_name: str,
             # Full ranking data
             "full_ranking": full_ranking,
             "ideal_ranking": BENCHMARK_IDEAL_RANKINGS.get(benchmark, []),
-            "rank_order_score": rank_order_score,
+            "rank_match_type": rank_match_type,
             # Token usage
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
@@ -295,6 +295,8 @@ def _get_short_name(name: str) -> str:
         return "Adaptive\nRank V4"
     if "RANK_3" in upper:
         return "Adaptive\nRank V3"
+    if "RANK_2_1" in upper:
+        return "Adaptive\nRank V2.1"
     if "RANK_2" in upper:
         return "Adaptive\nRank V2"
     if "RANK" in upper:
@@ -328,65 +330,38 @@ def generate_plots(summary: dict, llm_display_name: str,
     }
 
     colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3"][:len(names)]
-
-    # ── Figure 1: Rank Order Score (Overall + Per-Benchmark) + Token Usage ────
-    fig, axes = plt.subplots(1, 3, figsize=(24, 6))
-    fig.suptitle(f"Rank Prompt Comparison — {llm_display_name}",
-                 fontsize=15, fontweight="bold", y=1.02)
-
-    # 1a. Overall Rank Order Score
-    overall_scores = [summary[n]["rank_order_score"] for n in names]
-    bars = axes[0].bar(short_names, overall_scores, color=colors,
-                       edgecolor="white", linewidth=0.8, width=0.35)
-    axes[0].set_ylim(0, 1.15)
-    axes[0].set_ylabel("Avg Score", fontsize=12)
-    axes[0].set_title("Overall Rank Order Score", fontsize=13, fontweight="bold")
-    for bar, score in zip(bars, overall_scores):
-        axes[0].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                     f"{score:.3f}", ha="center", va="bottom", fontsize=11, fontweight="bold")
-
-    # 1b. Per-benchmark rank order scores grouped bar chart
     x = np.arange(len(benchmarks))
     n_strats = len(names)
     width = 0.8 / n_strats
-    for i, name in enumerate(names):
-        per_bench = summary[name].get("per_benchmark", {})
-        bench_scores = [per_bench.get(b, {}).get("rank_order_score", 0.0) for b in benchmarks]
-        bars = axes[1].bar(x + i * width - (n_strats - 1) * width / 2, bench_scores, width,
-                           label=short_names[i].replace("\n", " "),
-                           color=colors[i], edgecolor="white", linewidth=0.8)
-        for bar, score in zip(bars, bench_scores):
-            axes[1].text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
-                         f"{score:.2f}", ha="center", va="bottom", fontsize=8, fontweight="bold")
 
-    axes[1].set_xticks(x)
-    axes[1].set_xticklabels([bench_short.get(b, b) for b in benchmarks], fontsize=10)
-    axes[1].set_ylim(0, 1.15)
-    axes[1].set_ylabel("Avg Rank Order Score", fontsize=12)
-    axes[1].set_title("Rank Order Score by Benchmark", fontsize=13, fontweight="bold")
-    axes[1].legend(loc="upper right", fontsize=8)
+    # ── Figure 1: Total Token Usage ───────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(8, 6))
+    fig.suptitle(f"Total Token Usage — {llm_display_name}",
+                 fontsize=15, fontweight="bold", y=1.02)
 
-    # 1c. Token usage stacked bar chart
     prompt_tokens = [summary[n]["total_usage"]["prompt_tokens"] for n in names]
     completion_tokens = [summary[n]["total_usage"]["completion_tokens"] for n in names]
     x2 = np.arange(len(names))
-    axes[2].bar(x2, prompt_tokens, 0.35, label="Prompt Tokens",
-                color="#4C72B0", edgecolor="white", linewidth=0.8)
-    axes[2].bar(x2, completion_tokens, 0.35, bottom=prompt_tokens,
-                label="Completion Tokens", color="#DD8452",
-                edgecolor="white", linewidth=0.8)
-    axes[2].set_xticks(x2)
-    axes[2].set_xticklabels(short_names, fontsize=10)
-    axes[2].set_ylabel("Token Count", fontsize=12)
-    axes[2].set_title("Total Token Usage", fontsize=13, fontweight="bold")
-    axes[2].legend(loc="upper right")
+    
+    ax.bar(x2, prompt_tokens, 0.35, label="Prompt Tokens",
+           color="#4C72B0", edgecolor="white", linewidth=0.8)
+    ax.bar(x2, completion_tokens, 0.35, bottom=prompt_tokens,
+           label="Completion Tokens", color="#DD8452",
+           edgecolor="white", linewidth=0.8)
+    
+    ax.set_xticks(x2)
+    ax.set_xticklabels(short_names, fontsize=10)
+    ax.set_ylabel("Token Count", fontsize=12)
+    ax.set_title("Prompt vs Completion Tokens", fontsize=13, fontweight="bold")
+    ax.legend(loc="upper right")
+    
     for i in range(len(names)):
         total = prompt_tokens[i] + completion_tokens[i]
-        axes[2].text(i, total + max(prompt_tokens) * 0.02, f"{total:,}",
-                     ha="center", va="bottom", fontsize=10, fontweight="bold")
+        ax.text(i, total + max(prompt_tokens) * 0.02, f"{total:,}",
+                ha="center", va="bottom", fontsize=10, fontweight="bold")
 
     plt.tight_layout()
-    plot_path = os.path.join(output_dir, "rank_prompt_comparison.png")
+    plot_path = os.path.join(output_dir, "rank_token_usage.png")
     plt.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"\nPlot saved to {plot_path}")
@@ -404,10 +379,10 @@ def generate_plots(summary: dict, llm_display_name: str,
         for j, bench in enumerate(benchmarks):
             stats = per_bench.get(bench, {})
             pct_perfect = stats.get("pct_perfect", 0)
-            pct_partial = stats.get("pct_partial", 0)
+            pct_top2swap = stats.get("pct_top2swap", 0)
             pct_bot2swap = stats.get("pct_bot2swap", 0)
-            pct_zero = stats.get("pct_zero", 0)
-            vals = [pct_perfect, pct_partial, pct_bot2swap, pct_zero]
+            pct_bad = stats.get("pct_bad", 0)
+            vals = [pct_perfect, pct_top2swap, pct_bot2swap, pct_bad]
             x_pos = np.arange(len(categories)) + j * 0.18
             axes[i].bar(x_pos, vals, 0.16, label=bench_short.get(bench, bench).replace("\n", " "),
                         edgecolor="white", linewidth=0.5)
@@ -497,7 +472,7 @@ def generate_plots(summary: dict, llm_display_name: str,
 # ── Result Saving ──────────────────────────────────────────────────────────────
 
 def save_structured_results(prompt_name: str, results: list, total_usage: dict,
-                            overall_score: float, accuracy: float,
+                            accuracy: float,
                             per_benchmark_stats: dict,
                             llm_model: str, temperature: float,
                             output_root: str = "results_rank"):
@@ -531,12 +506,11 @@ def save_structured_results(prompt_name: str, results: list, total_usage: dict,
         "temperature": temperature,
         "timestamp": datetime.datetime.now().isoformat(),
         "num_problems": len(results),
-        "rank_order_score": overall_score,
         "top1_accuracy": accuracy,
         "total_usage": total_usage,
         "per_benchmark": per_benchmark_stats,
         "scoring_rubric": {
-            "description": "1.0 = exact ideal order, 0.75 = top-2 swapped (worst still last), 0.5 = 1st correct but 2nd/3rd swapped, 0.0 = worst solver in top-2",
+            "description": "Categories: perfect, top2swap, bot2swap, bad",
             "ideal_rankings": {k: v for k, v in BENCHMARK_IDEAL_RANKINGS.items()},
         },
     }
@@ -554,21 +528,20 @@ def compute_per_benchmark_stats(df_strat: pd.DataFrame) -> dict:
     per_bench_scores = {}
     for bench_name, bench_df in df_strat.groupby("benchmark"):
         total = len(bench_df)
-        num_perfect = (bench_df["rank_order_score"] == 1.0).sum()
-        num_partial = (bench_df["rank_order_score"] == 0.75).sum()
-        num_bot2swap = (bench_df["rank_order_score"] == 0.5).sum()
-        num_zero = (bench_df["rank_order_score"] == 0.0).sum()
+        num_perfect = (bench_df["rank_match_type"] == "perfect").sum()
+        num_top2swap = (bench_df["rank_match_type"] == "top2swap").sum()
+        num_bot2swap = (bench_df["rank_match_type"] == "bot2swap").sum()
+        num_bad = (bench_df["rank_match_type"] == "bad").sum()
         per_bench_scores[bench_name] = {
             "num_problems": total,
-            "rank_order_score": bench_df["rank_order_score"].mean(),
             "num_perfect": int(num_perfect),
-            "num_partial": int(num_partial),
+            "num_top2swap": int(num_top2swap),
             "num_bot2swap": int(num_bot2swap),
-            "num_zero": int(num_zero),
+            "num_bad": int(num_bad),
             "pct_perfect": num_perfect / total * 100 if total > 0 else 0.0,
-            "pct_partial": num_partial / total * 100 if total > 0 else 0.0,
+            "pct_top2swap": num_top2swap / total * 100 if total > 0 else 0.0,
             "pct_bot2swap": num_bot2swap / total * 100 if total > 0 else 0.0,
-            "pct_zero": num_zero / total * 100 if total > 0 else 0.0,
+            "pct_bad": num_bad / total * 100 if total > 0 else 0.0,
             "accuracy": bench_df["match"].mean(),
             "total_tokens": int(bench_df["total_tokens"].sum()),
         }
@@ -606,13 +579,11 @@ def run_llm_evaluation(llm_config: dict, strategies: list, problems: list,
         # Compute scores
         df_strat = pd.DataFrame(result["results"])
         accuracy = df_strat["match"].mean()
-        avg_rank_score = df_strat["rank_order_score"].mean()
 
         # Per-benchmark breakdown
         per_bench_scores = compute_per_benchmark_stats(df_strat)
 
         summary[name] = {
-            "rank_order_score": avg_rank_score,
             "accuracy": accuracy,
             "total_usage": result["total_usage"],
             "per_benchmark": per_bench_scores,
@@ -623,7 +594,6 @@ def run_llm_evaluation(llm_config: dict, strategies: list, problems: list,
             prompt_name=name,
             results=result["results"],
             total_usage=result["total_usage"],
-            overall_score=avg_rank_score,
             accuracy=accuracy,
             per_benchmark_stats=per_bench_scores,
             llm_model=model_name,
@@ -632,23 +602,23 @@ def run_llm_evaluation(llm_config: dict, strategies: list, problems: list,
         )
 
         print(f"\n  -> {name}:")
-        print(f"     Rank Order Score = {avg_rank_score:.3f}  |  Top-1 Accuracy = {accuracy:.2%}  |  "
+        print(f"     Top-1 Accuracy = {accuracy:.2%}  |  "
               f"Tokens = {result['total_usage']['total_tokens']:,}")
         # Per-benchmark breakdown
         for bench_name in sorted(per_bench_scores.keys()):
             bs = per_bench_scores[bench_name]
-            print(f"       {bench_name:15s}: Score={bs['rank_order_score']:.3f}  "
-                  f"(Perfect={bs['num_perfect']}, Partial={bs['num_partial']}, Bot2Swap={bs['num_bot2swap']}, Zero={bs['num_zero']})  "
+            print(f"       {bench_name:15s}: "
+                  f"(Perfect={bs['num_perfect']}, Top2Swap={bs['num_top2swap']}, Bot2Swap={bs['num_bot2swap']}, Bad={bs['num_bad']})  "
                   f"Acc={bs['accuracy']:.2%}")
 
     # Print per-LLM summary table
     print(f"\n{'='*80}")
     print(f"  SUMMARY — {display_name}")
     print(f"{'='*80}")
-    print(f"  {'Prompt':<45s}  {'Rank Score':>10s}  {'Acc':>6s}  {'Tokens':>10s}")
-    print(f"  {'-'*45}  {'-'*10}  {'-'*6}  {'-'*10}")
+    print(f"  {'Prompt':<45s}  {'Acc':>6s}  {'Tokens':>10s}")
+    print(f"  {'-'*45}  {'-'*6}  {'-'*10}")
     for name, info in summary.items():
-        print(f"  {name:<45s}  {info['rank_order_score']:>10.3f}  {info['accuracy']:>5.1%}  "
+        print(f"  {name:<45s}  {info['accuracy']:>5.1%}  "
               f"{info['total_usage']['total_tokens']:>10,}")
     print(f"{'='*80}")
 
@@ -692,19 +662,20 @@ def main():
 
     # Print scoring rubric
     print("Scoring rubric:")
-    print("  1.0  = exact ideal order")
-    print("  0.75 = top-2 swapped, worst solver still last")
-    print("  0.5  = 1st correct, but 2nd and 3rd swapped")
-    print("  0.0  = worst solver in position 1 or 2")
+    print("  perfect  = exact ideal order")
+    print("  top2swap = top-2 swapped, worst solver still last")
+    print("  bot2swap = 1st correct, but 2nd and 3rd swapped")
+    print("  bad      = worst solver in position 1 or 2")
     print("\nIdeal rankings per benchmark:")
     for bench, ideal in BENCHMARK_IDEAL_RANKINGS.items():
         print(f"  {bench:15s}: {' > '.join(ideal)}")
     print()
 
-    # Define prompt strategies to evaluate (four rank prompts)
+    # Define prompt strategies to evaluate
     strategies = [
         ("ADAPTIVE_SELECTION_PROMPT_RANK", ADAPTIVE_SELECTION_PROMPT_RANK, RANK_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK_2", ADAPTIVE_SELECTION_PROMPT_RANK_2, RANK_LABEL_MAP, 0),
+        ("ADAPTIVE_SELECTION_PROMPT_RANK_2_1", ADAPTIVE_SELECTION_PROMPT_RANK_2_1, RANK_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK_3", ADAPTIVE_SELECTION_PROMPT_RANK_3, RANK_LABEL_MAP, 0),
         ("ADAPTIVE_SELECTION_PROMPT_RANK_4", ADAPTIVE_SELECTION_PROMPT_RANK_4, RANK_LABEL_MAP, 0),
     ]
@@ -729,11 +700,11 @@ def main():
     print(f"\n\n{'#'*80}")
     print(f"  FINAL CROSS-LLM SUMMARY")
     print(f"{'#'*80}")
-    print(f"  {'LLM':<25s}  {'Prompt':<40s}  {'Rank Score':>10s}  {'Acc':>6s}  {'Tokens':>10s}")
-    print(f"  {'-'*25}  {'-'*40}  {'-'*10}  {'-'*6}  {'-'*10}")
+    print(f"  {'LLM':<25s}  {'Prompt':<40s}  {'Acc':>6s}  {'Tokens':>10s}")
+    print(f"  {'-'*25}  {'-'*40}  {'-'*6}  {'-'*10}")
     for llm_name, llm_summary in all_llm_summaries.items():
         for prompt_name, info in llm_summary.items():
-            print(f"  {llm_name:<25s}  {prompt_name:<40s}  {info['rank_order_score']:>10.3f}  "
+            print(f"  {llm_name:<25s}  {prompt_name:<40s}  "
                   f"{info['accuracy']:>5.1%}  {info['total_usage']['total_tokens']:>10,}")
     print(f"{'#'*80}")
 

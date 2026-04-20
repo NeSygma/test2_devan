@@ -351,7 +351,9 @@ You have three solvers to choose from:
 1. VAMPIRE (Automated Theorem Prover — First-Order Logic):
 - Best for: Determining whether a natural-language conclusion logically follows from a set of premises, where the answer may be True, False, or Uncertain. Excels at abstract categorical reasoning with universal ("for all") and existential ("there exists") quantifiers over rich relational structures, under an open-world assumption.
 - Features: Universal (∀) and existential (∃) quantifiers, predicates, logical connectives (¬, ∧, ∨, →, ↔), and negation-based refutation proofs using TPTP format.
-- Warning: Not ideal for problems requiring numeric counting bounds, entity-to-position assignment, or explicit integer arithmetic.
+- Warning: Not ideal for problems requiring numeric counting bounds, entity-to-position assignment, or explicit integer arithmetic. 
+- Target Answer Types for VAMPIRE: True/False/Uncertain, Yes/No entailment checks, and determining if a specific hypothesis is valid or invalid.
+- DO NOT USE VAMPIRE for problems that requires more than true/false/uncertain answers.
 - Typical problems: Entailment checking from premises to a conclusion, categorical syllogisms, property inheritance chains, proving/disproving abstract claims.
 - Example patterns: "All X are Y", "No A are B", "If someone is P then they are Q", premises describing categories and properties of named individuals.
 
@@ -373,7 +375,7 @@ Given the following logic problem:
 Context: ${context}
 Question: ${question}
 Options: ${options}
-Analyze the problem structure carefully and rank ALL three solvers from most suitable to least suitable for this problem.
+Analyze the problem structure carefully and rank ALL three solvers from most suitable to least suitable for this problem. You MUST consider the type of answer the problem requires.
 Provide your final answer after the analysis as a JSON object with the following format.
 {
     "solver_ranking": ["MOST_SUITABLE", "SECOND_CHOICE", "LEAST_SUITABLE"]
@@ -384,7 +386,57 @@ Example output format:
 }
 """
 
-ADAPTIVE_SELECTION_PROMPT_RANK_3 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select the most appropriate solver for solving it.
+ADAPTIVE_SELECTION_PROMPT_RANK_2_1 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem and select the most appropriate solver for solving it.
+You have three solvers to choose from:
+
+1. VAMPIRE (Automated Theorem Prover — First-Order Logic):
+- Best for: Determining whether a natural-language conclusion logically follows from a set of premises, where the answer may be True, False, or Uncertain. Excels at abstract categorical reasoning with universal ("for all") and existential ("there exists") quantifiers over rich relational structures, under an open-world assumption.
+- Features: Universal (∀) and existential (∃) quantifiers, predicates, logical connectives (¬, ∧, ∨, →, ↔), and negation-based refutation proofs using TPTP format.
+- Warning: Not ideal for problems requiring numeric counting bounds, entity-to-position assignment, or explicit integer arithmetic.
+- Target Answer Types: True/False/Uncertain, Yes/No entailment checks, and determining if a specific hypothesis is valid or invalid.
+- DO NOT USE VAMPIRE for problems that require more than true/false/uncertain answers.
+- Typical problems: Entailment checking from premises to a conclusion, categorical syllogisms, property inheritance chains, proving/disproving abstract claims.
+- Example patterns: "All X are Y", "No A are B", "If someone is P then they are Q", premises describing categories and properties of named individuals.
+
+2. CLINGO (Answer Set Programming — Logic Programming):
+- Best for: Combinatorial search and planning problems that require GENERATING or ENUMERATING all valid configurations or action sequences over fully-specified discrete domains. Operates under a strict closed-world assumption with generate-define-test methodology.
+- Features: Facts, rules, integrity constraints, choice rules, optimization (#minimize/#maximize), aggregates (#count, #sum), and recursive reachability/path finding.
+- Warning: Grounding blows up on large numeric ranges. If the problem requires complex arithmetic, real numbers, or counting bounds with conditional slot references, do not use Clingo.
+- Warning: Do NOT use CLINGO when the answer requires testing which option among given choices "must be true", "could be true", "must be false", or "cannot be true". This is option satisfiability checking, not state generation — use Z3 instead.
+- Target Answer Types: Constructed configurations, enumeration of all valid worlds, complete action plans/schedules.
+- Typical problems: Logic puzzles requiring enumeration of valid states, graph coloring, multi-step action planning, resource allocation, finding all valid combinations that satisfy a closed set of rules.
+- Example patterns: "Find a valid sequence of state transitions", "What are all valid assignments?", "Assign properties such that no rule is violated", "Find all valid combinations".
+
+3. Z3 (SMT Solver — Satisfiability Modulo Theories):
+- Best for: Problems that require checking the satisfiability or necessity of specific assignments under constraints. Excels at LSAT-style logic games where the question asks "which of the following MUST be true", "which COULD be true", "which MUST be false", or "which CANNOT be true" — all of which require testing each given option against a set of arithmetic or positional constraints. Also handles entity-to-slot scheduling under numeric counting bounds ("at least N", "no more than M", "exactly K per slot").
+- Features: Integer, Real, and Boolean symbolic variables, Z3 logical operators (And, Or, Not, Implies), arithmetic constraints, Distinct, arrays, optimization (minimize/maximize), and model finding.
+- Warning: Not ideal for multi-step action planning, recursive path finding, or pure qualitative logic with complex quantifier nesting where no numeric or positional structure is present.
+- Target Answer Types: Multiple-choice option verification ("which must/could be true/false?"), positional assignment validity, constraint satisfaction queries with given candidates.
+- Typical problems: Entity-to-slot scheduling, selection problems with cardinality bounds, ordering/sequencing with positional constraints, LSAT logic games with "must/could/cannot" answer types, verifying which of several given arrangements satisfies all constraints.
+- Example patterns: "If condition X holds, which one of the following MUST be false?", "Which one of the following COULD be true?", "Which arrangement is valid?", "Assign items to ordered positions then check which option is consistent".
+
+CRITICAL DECISION RULE — Z3 vs CLINGO:
+- Answer asks "which of the following MUST / COULD / CANNOT be true/false?" among given options → USE Z3 (satisfiability check per option, not state generation).
+- Answer requires FINDING or GENERATING a valid configuration/plan without testing given options → USE CLINGO (enumerate valid worlds).
+- Problem assigns entities to numeric ordered positions AND asks which option is consistent → USE Z3.
+- Problem involves multi-step action planning, state transitions, or rule-based deduction with a fixed closed world → USE CLINGO.
+
+Given the following logic problem:
+Context: ${context}
+Question: ${question}
+Options: ${options}
+First identify the answer type required. Then apply the CRITICAL DECISION RULE. Then rank ALL three solvers from most suitable to least suitable.
+Provide your final answer after the analysis as a JSON object with the following format.
+{
+    "solver_ranking": ["MOST_SUITABLE", "SECOND_CHOICE", "LEAST_SUITABLE"]
+}
+Example output format:
+{
+    "solver_ranking": ["CLINGO", "Z3", "VAMPIRE"]
+}
+"""
+
+ADAPTIVE_SELECTION_PROMPT_RANK_3 = """ You are an expert in symbolic logic and reasoning systems. Your task is to analyze a logic problem, consider its required answer types, and select the most appropriate solver for solving it.
 You have three solvers to choose from:
 
 1. VAMPIRE (Automated Theorem Prover — First-Order Logic):
@@ -394,6 +446,7 @@ You have three solvers to choose from:
 - Open-world assumption: anything not explicitly asserted as an axiom or derivable from axioms is unknown, not false.
 - Typical problems: Mathematical theorems, categorical syllogisms, complex logical entailments, nested quantifications, claim checking via proof/refutation.
 - Example patterns: "For all X, there exists Y such that...", "If and only if...", "All X are Y", "No A are B", "Is it true that...?", proving/disproving logical claims.
+- DO NOT use this VAMPIRE solver for problems requiring numeric counting bounds, entity-to-position assignment, or explicit integer arithmetic.
 
 2. CLINGO (Answer Set Programming — Logic Programming):
 - Target Answer Types: Constructed configurations, enumeration of all valid states, exact plans/schedules, or structurally generated outputs.
@@ -402,6 +455,7 @@ You have three solvers to choose from:
 - Closed-world assumption: anything not explicitly stated as a fact or derivable from a rule is considered false.
 - Typical problems: Deductive reasoning, rule-based inference, expert systems, planning with temporal logic and frame axioms, state exclusivity, graph coloring, scheduling with explicit action modeling.
 - Example patterns: "If something is X then it is Y", "X is a bird and does not have an exception, so X can fly", "Given these rules, what can be concluded?", step-by-step rule chaining, default reasoning with exceptions.
+- Warning: Grounding blows up on large numeric ranges. If the problem requires complex arithmetic, real numbers, or counting bounds with conditional slot references, DO NOT USE CLINGO.
 
 3. Z3 (SMT Solver — Satisfiability Modulo Theories):
 - Target Answer Types: Multiple-choice options (by testing each option against constraints to see which must/could be true), and specific variable assignments.
@@ -409,12 +463,13 @@ You have three solvers to choose from:
 - Features: Boolean (Bool), integer (Int), and real (Real) symbolic variables, Z3 logical operators (And, Or, Not, Implies), arithmetic constraints, arrays, optimization (minimize/maximize), model finding, and theorem proving via negation.
 - Typical problems: Constraint satisfaction puzzles, arrangement/allocation problems, scheduling, spatial reasoning, arithmetic optimization, verifying whether a configuration satisfies logical requirements, checking consistency of assignments.
 - Example patterns: "X is to the left of Y", "X is between Y and Z", "Find values such that all constraints are satisfied", "Which arrangement is valid?", ordering under constraints, resource allocation.
+- DO NOT USE Z3 solver for multi-step action planning, recursive path finding, or pure qualitative logic with complex quantifier nesting where no numeric or positional structure is present.
 
 Given the following logic problem:
 Context: ${context}
 Question: ${question}
 Options: ${options}
-Analyze the problem and answer structure carefully and rank ALL three solvers from most suitable to least suitable for this problem regardless of its difficulty.
+Analyze the problem structure and answer requirements carefully and rank ALL three solvers from most suitable to least suitable for this problem and its answer types regardless of its difficulty.
 Provide your final answer after the analysis as a JSON object with the following format.
 {
     "solver_ranking": ["MOST_SUITABLE", "SECOND_CHOICE", "LEAST_SUITABLE"]

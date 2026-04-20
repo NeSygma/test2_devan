@@ -1,56 +1,17 @@
 {
-  "prompt_name": "ADAPTIVE_SELECTION_PROMPT_RANK_2",
+  "prompt_name": "ADAPTIVE_SELECTION_PROMPT_RANK_2_1",
   "llm_model": "openai/gpt-oss-120b",
   "temperature": 0,
-  "timestamp": "2026-04-20T21:58:44.243932",
+  "timestamp": "2026-04-20T22:28:35.983350",
   "num_problems": 240,
-  "top1_accuracy": 0.6666666666666666,
+  "top1_accuracy": 0.9291666666666667,
   "total_usage": {
-    "prompt_tokens": 292795,
-    "completion_tokens": 86506,
-    "total_tokens": 379301
+    "prompt_tokens": 365275,
+    "completion_tokens": 66451,
+    "total_tokens": 431726
   },
   "per_benchmark": {
     "ar_lsat": {
-      "num_problems": 60,
-      "num_perfect": 18,
-      "num_top2swap": 42,
-      "num_bot2swap": 0,
-      "num_bad": 0,
-      "pct_perfect": 30.0,
-      "pct_top2swap": 70.0,
-      "pct_bot2swap": 0.0,
-      "pct_bad": 0.0,
-      "accuracy": 0.3,
-      "total_tokens": 93126
-    },
-    "aspbench_easy": {
-      "num_problems": 60,
-      "num_perfect": 47,
-      "num_top2swap": 13,
-      "num_bot2swap": 0,
-      "num_bad": 0,
-      "pct_perfect": 78.33333333333333,
-      "pct_top2swap": 21.666666666666668,
-      "pct_bot2swap": 0.0,
-      "pct_bad": 0.0,
-      "accuracy": 0.7833333333333333,
-      "total_tokens": 92282
-    },
-    "aspbench_hard": {
-      "num_problems": 60,
-      "num_perfect": 35,
-      "num_top2swap": 25,
-      "num_bot2swap": 0,
-      "num_bad": 0,
-      "pct_perfect": 58.333333333333336,
-      "pct_top2swap": 41.66666666666667,
-      "pct_bot2swap": 0.0,
-      "pct_bad": 0.0,
-      "accuracy": 0.5833333333333334,
-      "total_tokens": 119076
-    },
-    "folio": {
       "num_problems": 60,
       "num_perfect": 59,
       "num_top2swap": 0,
@@ -61,7 +22,46 @@
       "pct_bot2swap": 0.0,
       "pct_bad": 1.6666666666666667,
       "accuracy": 1.0,
-      "total_tokens": 74817
+      "total_tokens": 100356
+    },
+    "aspbench_easy": {
+      "num_problems": 60,
+      "num_perfect": 51,
+      "num_top2swap": 7,
+      "num_bot2swap": 0,
+      "num_bad": 2,
+      "pct_perfect": 85.0,
+      "pct_top2swap": 11.666666666666666,
+      "pct_bot2swap": 0.0,
+      "pct_bad": 3.3333333333333335,
+      "accuracy": 0.85,
+      "total_tokens": 107365
+    },
+    "aspbench_hard": {
+      "num_problems": 60,
+      "num_perfect": 53,
+      "num_top2swap": 7,
+      "num_bot2swap": 0,
+      "num_bad": 0,
+      "pct_perfect": 88.33333333333333,
+      "pct_top2swap": 11.666666666666666,
+      "pct_bot2swap": 0.0,
+      "pct_bad": 0.0,
+      "accuracy": 0.8833333333333333,
+      "total_tokens": 128921
+    },
+    "folio": {
+      "num_problems": 60,
+      "num_perfect": 59,
+      "num_top2swap": 1,
+      "num_bot2swap": 0,
+      "num_bad": 0,
+      "pct_perfect": 98.33333333333333,
+      "pct_top2swap": 1.6666666666666667,
+      "pct_bot2swap": 0.0,
+      "pct_bad": 0.0,
+      "accuracy": 0.9833333333333333,
+      "total_tokens": 95084
     }
   },
   "scoring_rubric": {
